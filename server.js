@@ -1,23 +1,15 @@
-// require('dotenv').config() //env
-const express = require('express') //commonjs
-const configViewEngine = require('./src/config/viewEngine') //commonjs
-const app = express() //app express
-const port = process.env.PORT || 8888// port
-const hostname = process.env.HOSTNAME // hostname
-const webRouter = require('./src/routes/userRoute') //router
-const connection = require('./src/config/database') //connect mysql
+const { connect } = require('./src/config/database.js');
+const express = require('express');
+const app = express();
+const port = 3000;
 
-// config template engine
-configViewEngine(app)
+app.get('/', (req, res) => {
+    res.send('Hello World!');
+});
 
+// Call the connect function to connect to the database
+connect();
 
-// config req.body
-app.use(express.urlencoded({ extended: true }))
-app.use(express.json())
-
-// khai báo route
-app.use('/', webRouter)
-
-app.listen(port, hostname, () => {
-    console.log(`Example app listening on port ${port}`)
-})
+app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`);
+});
