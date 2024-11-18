@@ -131,8 +131,9 @@ CREATE TABLE CHITIETDICHVU (
     FOREIGN KEY (MaLoaiDichVu) REFERENCES LOAIDICHVU(MaLoaiDV)
 );
 
-	CREATE TABLE TAIKHOAN (
-		MaTaiKhoan INT AUTO_INCREMENT PRIMARY KEY, -- Mã tài khoản tự động tăng
-		TenTaiKhoan VARCHAR(50) NOT NULL UNIQUE,     -- Tên đăng nhập phải là duy nhất
-		MatKhau VARCHAR(255) NOT NULL        -- Mật khẩu (nên được mã hóa)
-	);
+CREATE TABLE TAIKHOAN (
+    MaTaiKhoan INT AUTO_INCREMENT PRIMARY KEY,
+    TenTaiKhoan VARCHAR(50) NOT NULL UNIQUE,
+    MatKhau VARCHAR(255) NOT NULL,
+    Role ENUM('admin', 'seller', 'warehouse') NOT NULL DEFAULT 'seller'
+);
