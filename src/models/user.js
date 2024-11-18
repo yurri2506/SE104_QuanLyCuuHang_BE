@@ -1,4 +1,5 @@
 const { connection } = require('../config/database');
+const bcrypt = require('bcrypt');
 
 class User {
     constructor(username, password) {
@@ -7,10 +8,11 @@ class User {
     }
 
     static async create(username, password) {
+        const hashedPassword = await bcrypt.hash(password, 10);
         const query = 'INSERT INTO TAIKHOAN (TenTaiKhoan, MatKhau) VALUES (?, ?)';
         const conn = await connection.getConnection();
         try {
-            const [result] = await conn.query(query, [username, password]);
+            const [result] = await conn.query(query, [username, hashedPassword]);
             return result;
         } finally {
             conn.release();
@@ -18,7 +20,7 @@ class User {
     }
 
     static async findByUsername(username) {
-        const query = 'SELECT * FROM TAIKHOAN WHERE username = ?';
+        const query = 'SELECT * FROM TAIKHOAN WHERE TenTaiKhoan = ?';
         const conn = await connection.getConnection();
         try {
             const [rows] = await conn.query(query, [username]);
@@ -32,7 +34,7 @@ class User {
     }
 
     static async findById(id) {
-        const query = 'SELECT * FROM users WHERE id = ?';
+        const query = 'SELECT * FROM TAIKHOAN WHERE MaTaiKhoan = ?';
         const conn = await connection.getConnection();
         try {
             const [rows] = await conn.query(query, [id]);

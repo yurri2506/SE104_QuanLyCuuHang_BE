@@ -1,4 +1,5 @@
 const User = require('../models/user');
+const bcrypt = require('bcrypt');
 
 const createUser = async (req, res) => {
     const { username, password } = req.body;
@@ -14,12 +15,12 @@ const handleLogin = async (req, res) => {
     const { username, password } = req.body;
     try {
         const user = await User.findByUsername(username);
-        if (user && user.password === password) {
+        if (user && await bcrypt.compare(password, user.MatKhau)) {
             return res.status(200).json({ message: "Login success" });
         } else {
             return res.status(401).json({ message: "Login failed" });
         }
-    } catch (error) {   
+    } catch (error) {
         return res.status(500).json({ message: error.message });
     }
 };
