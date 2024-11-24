@@ -1,4 +1,5 @@
--- Bảng KHACHHANG
+CREATE DATABASE QLBH2
+USE QLBH2
 CREATE TABLE KHACHHANG (
     MaKhachHang VARCHAR(50) PRIMARY KEY,
     TenKhachHang NVARCHAR(100),
@@ -14,12 +15,15 @@ CREATE TABLE DONVITINH (
 
 -- Bảng LOAISANPHAM
 CREATE TABLE LOAISANPHAM (
-    MaLoaiSanPham VARCHAR(50) PRIMARY KEY,
-    TenLoaiSanPham NVARCHAR(100),
-    MaDVTinh VARCHAR(50),
-    PhanTramLoiNhuan DECIMAL(5, 2),
-    FOREIGN KEY (MaDVTinh) REFERENCES DONVITINH(MaDVTinh)
+    MaLoaiSanPham VARCHAR(50) PRIMARY KEY,        -- Khóa chính
+    TenLoaiSanPham NVARCHAR(100) NOT NULL,       -- Tên danh mục sản phẩm
+    MaDVTinh VARCHAR(50) NOT NULL,              -- Mã đơn vị tính
+    ParentID VARCHAR(50),                        -- Mã danh mục cha (cho quan hệ phân cấp)
+    PhanTramLoiNhuan DECIMAL(5, 2) NOT NULL,     -- Phần trăm lợi nhuận
+    FOREIGN KEY (MaDVTinh) REFERENCES DONVITINH(MaDVTinh), -- Khóa ngoại tới bảng DONVITINH
+    FOREIGN KEY (ParentID) REFERENCES LOAISANPHAM(MaLoaiSanPham) -- Khóa ngoại tự tham chiếu
 );
+
 
 -- Bảng SANPHAM
 CREATE TABLE SANPHAM (
@@ -137,3 +141,5 @@ CREATE TABLE TAIKHOAN (
     MatKhau VARCHAR(255) NOT NULL,
     Role ENUM('admin', 'seller', 'warehouse') NOT NULL DEFAULT 'seller'
 );
+
+SELECT * FROM LOAISANPHAM;
