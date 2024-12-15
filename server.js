@@ -1,15 +1,15 @@
 const { connect } = require('./src/config/database.js');
 const express = require('express');
 const bodyParser = require('body-parser');
-const routes = require('./src/routes')
+const routes = require('./src/routes');
+
 const app = express();
 const port = 3000;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-
-routes(app);
+app.use('/api', routes);
 
 app.get('/', (req, res) => {
     res.send('Hello World!');

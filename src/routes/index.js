@@ -1,9 +1,14 @@
-const UserRouter = require("./userRoute");
-const ProductRouter = require("./productRoute");
+const express = require('express');
+const userRoute = require('./userRoute');
+const customerRoute = require('./customerRoute');
+const serviceTicketRoute = require('./serviceTicketRoute');
 
-const routes = (app) => {
-  app.use("/api/user", UserRouter);
-  app.use("/api/product", ProductRouter);
-};
+const router = express.Router();
+
+// Define route prefixes
+router.use('/users', userRoute);
+router.use('/customers', customerRoute);
+router.use('/services', serviceTicketRoute);
+router.use('/product', serviceTicketRoute);
 
 module.exports = routes;
