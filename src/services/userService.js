@@ -9,6 +9,12 @@ class UserService {
         });
     }
 
+    static generateRefreshToken(userData) {
+        return jwt.sign(userData, process.env.JWT_REFRESH_SECRET, {
+            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d'
+        });
+    }
+
     static async createUser(username, password, role) {
         const existingUser = await User.findOne({ where: { TenTaiKhoan: username } });
         if (existingUser) {
@@ -50,11 +56,12 @@ class UserService {
             role: user.Role
         };
 
-        const accessToken = this.generateToken(userData);
-
         return {
-            ...userData,
-            accessToken
+            userId: user.MaTaiKhoan,
+            username: user.TenTaiKhoan,
+            role: user.Role,
+            accessToken: UserService.generateToken(userData),
+            refreshToken: UserService.generateRefreshToken(userData)
         };
     }
 
