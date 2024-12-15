@@ -9,5 +9,6 @@ const router = express.Router();
 router.use('/users', userRoute);
 router.use('/customers', customerRoute);
 router.use('/services', serviceTicketRoute);
+router.use('/product', serviceTicketRoute);
 
-module.exports = router;
+module.exports = routes;

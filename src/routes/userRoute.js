@@ -1,4 +1,5 @@
-const express = require('express');
+const express = require('express')
+const router = express.Router()
 const { createUser, handleLogin, getUser } = require('../controllers/userController');
 const verifyToken = require('../middleware/auth');
 
@@ -8,4 +9,4 @@ routerAPI.post("/register", createUser);
 routerAPI.post("/login", handleLogin);
 routerAPI.get("/user", verifyToken, getUser);
 
-module.exports = routerAPI;
+module.exports = router

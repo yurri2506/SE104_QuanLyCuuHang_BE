@@ -25,7 +25,7 @@ const Product = sequelize.define('SANPHAM', {
     },
     SoLuong: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false 
     }
 }, {
     tableName: 'SANPHAM',
