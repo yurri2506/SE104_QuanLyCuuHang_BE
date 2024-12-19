@@ -1,5 +1,5 @@
 const Product = require("../models/product.model");
-const ProductCategory = require("../models/productCategory");
+const ProductCategory = require("../models/category.model");
 
 class ProductService {
   // Lấy tất cả sản phẩm kèm danh mục
