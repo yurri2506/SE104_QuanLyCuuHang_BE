@@ -1,7 +1,20 @@
 const User = require('../models/user');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 class UserService {
+    static generateToken(userData) {
+        return jwt.sign(userData, process.env.JWT_SECRET, {
+            expiresIn: process.env.JWT_EXPIRES_IN
+        });
+    }
+
+    static generateRefreshToken(userData) {
+        return jwt.sign(userData, process.env.JWT_REFRESH_SECRET, {
+            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d'
+        });
+    }
+
     static async createUser(username, password, role) {
         const existingUser = await User.findOne({ where: { TenTaiKhoan: username } });
         if (existingUser) {
@@ -37,10 +50,18 @@ class UserService {
             throw new Error('Invalid password');
         }
 
-        return {
+        const userData = {
             userId: user.MaTaiKhoan,
             username: user.TenTaiKhoan,
             role: user.Role
+        };
+
+        return {
+            userId: user.MaTaiKhoan,
+            username: user.TenTaiKhoan,
+            role: user.Role,
+            accessToken: UserService.generateToken(userData),
+            refreshToken: UserService.generateRefreshToken(userData)
         };
     }
 
