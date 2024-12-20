@@ -1,23 +1,52 @@
 const { DataTypes } = require("sequelize");
-const { sequelize } = require("../config/database"); // Cấu hình Sequelize
+const { sequelize } = require("../config/database");
+const PurchaseDetail = require("./purchaseOrderDetails.model"); // Import bảng chi tiết
+const Provider = require("./provider.model");
 
-const Unit = sequelize.define(
-  "DONVITINH",
+const PurchaseOrder = sequelize.define(
+  "PHIEUMUAHANG",
   {
-    MaDVTinh: {
+    SoPhieu: {
       type: DataTypes.STRING(50),
       primaryKey: true,
       allowNull: false,
     },
-    TenDVTinh: {
-      type: DataTypes.STRING(100),
+    NgayLap: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    MaNCC: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+    },
+    TongTien: {
+      type: DataTypes.FLOAT,
       allowNull: false,
     },
   },
   {
-    tableName: "DONVITINH",
+    tableName: "PHIEUMUAHANG",
     timestamps: false,
   }
 );
 
-module.exports = Unit;
+// Thiết lập quan hệ
+PurchaseOrder.hasMany(PurchaseDetail, {
+  foreignKey: "SoPhieu",
+  sourceKey: "SoPhieu",
+  as: "ChiTietSanPham", // Alias cho frontend
+});
+
+PurchaseDetail.belongsTo(PurchaseOrder, {
+  foreignKey: "SoPhieu",
+  targetKey: "SoPhieu",
+});
+
+// Thiết lập quan hệ với NHACUNGCAP
+PurchaseOrder.belongsTo(Provider, {
+  foreignKey: "MaNCC",
+  targetKey: "MaNCC",
+  as: "NhaCungCap",
+});
+
+module.exports = PurchaseOrder;

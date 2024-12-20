@@ -1,23 +1,39 @@
 const { DataTypes } = require("sequelize");
-const { sequelize } = require("../config/database"); // Cấu hình Sequelize
+const { sequelize } = require("../config/database");
 
-const Unit = sequelize.define(
-  "DONVITINH",
+const PurchaseDetail = sequelize.define(
+  "CHITIETPHIEUMUAHANG",
   {
-    MaDVTinh: {
+    MaChiTietMH: {
       type: DataTypes.STRING(50),
       primaryKey: true,
       allowNull: false,
     },
-    TenDVTinh: {
-      type: DataTypes.STRING(100),
+    SoPhieu: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+    },
+    MaSanPham: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+    },
+    SoLuong: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    DonGia: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+    },
+    ThanhTien: {
+      type: DataTypes.FLOAT,
       allowNull: false,
     },
   },
   {
-    tableName: "DONVITINH",
+    tableName: "CHITIETPHIEUMUAHANG",
     timestamps: false,
   }
 );
 
-module.exports = Unit;
+module.exports = PurchaseDetail;
