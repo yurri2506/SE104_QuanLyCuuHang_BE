@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
-const ServiceTicket = require('./serviceTicket');
-const ServiceType = require('./serviceType');
+const ServiceTicket = require('./serviceTicket.model');
+const ServiceType = require('./serviceType.model');
 
 const ServiceTicketDetail = sequelize.define('CHITIETDICHVU', {
     MaChiTietDV: {
