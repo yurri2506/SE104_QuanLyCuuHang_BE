@@ -1,10 +1,26 @@
-
-const Customer = require('../models/customer');
+const { v4: uuidv4 } = require('uuid');
+const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
+const Customer = require('../models/customer.model');
+const SaleInvoice = require('../models/saleInvoice.model');
+const ServiceTicket = require('../models/serviceTicket.model');
+const ServiceTicketDetail = require('../models/serviceTicketDetail.model');
+const SaleInvoiceDetail = require('../models/saleInvoiceDetail.model');
 
 class CustomerService {
     static async createCustomer(customerData) {
-        const customer = await Customer.create(customerData);
-        return customer;
+        try {
+            // Generate UUID for MaKhachHang
+            const customerWithId = {
+                ...customerData,
+                MaKhachHang: `KH${uuidv4().substring(0, 8)}` // Creates ID like "KH12345678"
+            };
+
+            const customer = await Customer.create(customerWithId);
+            return customer;
+        } catch (error) {
+            throw error;
+        }
     }
 
     static async updateCustomer(id, customerData) {
@@ -16,11 +32,48 @@ class CustomerService {
     }
 
     static async deleteCustomer(id) {
-        const deleted = await Customer.destroy({
-            where: { MaKhachHang: id }
-        });
-        if (!deleted) throw new Error('Customer not found');
-        return deleted;
+        try {
+            // 1. Delete service ticket details first
+            await ServiceTicketDetail.destroy({
+                where: {
+                    SoPhieuDV: {
+                        [Op.in]: sequelize.literal(`(SELECT SoPhieuDV FROM PHIEUDICHVU WHERE MaKhachHang = '${id}')`)
+                    }
+                }
+            });
+
+            // 2. Delete service tickets
+            await ServiceTicket.destroy({
+                where: { MaKhachHang: id }
+            });
+
+            // 3. Delete sale invoice details
+            await SaleInvoiceDetail.destroy({
+                where: {
+                    SoPhieuBH: {
+                        [Op.in]: sequelize.literal(`(SELECT SoPhieuBH FROM PHIEUBANHANG WHERE MaKhachHang = '${id}')`)
+                    }
+                }
+            });
+
+            // 4. Delete sale invoices
+            await SaleInvoice.destroy({
+                where: { MaKhachHang: id }
+            });
+
+            // 5. Finally delete the customer
+            const deleted = await Customer.destroy({
+                where: { MaKhachHang: id }
+            });
+
+            if (!deleted) {
+                throw new Error('Customer not found');
+            }
+
+            return { message: 'Customer and all related records deleted successfully' };
+        } catch (error) {
+            throw error;
+        }
     }
 
     static async getAllCustomers() {

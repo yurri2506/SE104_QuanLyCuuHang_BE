@@ -1,4 +1,3 @@
-
 const ServiceTicketService = require('../services/serviceTicketService');
 
 const createServiceTicket = async (req, res) => {
@@ -7,7 +6,7 @@ const createServiceTicket = async (req, res) => {
         const ticket = await ServiceTicketService.createServiceTicket(ticketData, details);
         return res.status(201).json(ticket);
     } catch (error) {
-        return res.status(400).json({ message: error.message });
+        return res.status(400).json({ message: error.message});
     }
 };
 
@@ -30,8 +29,31 @@ const getServiceTicketById = async (req, res) => {
     }
 };
 
+const updateServiceTicket = async (req, res) => {
+    try {
+        const ticket = await ServiceTicketService.updateServiceTicket(req.params.id, req.body);
+        return res.status(200).json(ticket);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+const deleteServiceTicket = async (req, res) => {
+    try {
+        // Delete service ticket with ID from params
+        await ServiceTicketService.deleteServiceTicket(req.params.id);
+        return res.status(200).json({ 
+            message: 'Service ticket deleted successfully'
+        });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createServiceTicket,
     getAllServiceTickets,
-    getServiceTicketById
+    getServiceTicketById,
+    updateServiceTicket,
+    deleteServiceTicket
 };
