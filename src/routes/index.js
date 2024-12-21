@@ -7,6 +7,7 @@ const CustomerRoute = require('./customerRoute');
 const ServiceTicketRoute = require('./serviceTicketRoute');
 const SaleInvoiceRoute = require('./saleInvoiceRoute');
 
+
 const routes = (app) => {
   app.use("/api/user", UserRouter);
   app.use("/api/product", ProductRouter);
@@ -14,6 +15,8 @@ const routes = (app) => {
   app.use("/api/category", CategoryRouter);
   app.use("/api/customers", CustomerRoute);
   app.use("/api/services", ServiceTicketRoute);
+  app.use('/api/provider', providerRoute);
+  app.use('/api/purchase', purchaseOrder);
   app.use("/api/sale", SaleInvoiceRoute);
 };
 
