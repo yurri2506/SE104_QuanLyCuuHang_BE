@@ -8,7 +8,7 @@ const customerRoute = require('./customerRoute');
 const serviceTicketRoute = require('./serviceTicketRoute');
 const providerRoute = require('./providerRoute');
 const purchaseOrder = require('./purchaseRoute');
-
+// const warehouseManage = require('./warehouseManageRoute');
 
 const routes = (app) => {
   app.use("/api/user", UserRouter);
@@ -19,6 +19,7 @@ const routes = (app) => {
   app.use('/api/services', serviceTicketRoute);
   app.use('/api/provider', providerRoute);
   app.use('/api/purchase', purchaseOrder);
+  // app.use('/api/warehouse', warehouseManage);
 };
 
 module.exports = routes;
