@@ -5,6 +5,12 @@ const routes = require('./src/routes');
 
 const app = express();
 const port = 3000;
+const cors = require('cors');
+
+app.use(cors({
+    origin: ['http://localhost:3001'], // Frontend port
+    credentials: true
+  }));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
