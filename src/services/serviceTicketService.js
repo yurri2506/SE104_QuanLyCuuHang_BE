@@ -1,20 +1,33 @@
+const { v4: uuidv4 } = require('uuid');
 const ServiceTicket = require('../models/serviceTicket.model');
 const ServiceTicketDetail = require('../models/serviceTicketDetail.model');
 
 class ServiceTicketService {
     static async createServiceTicket(ticketData, details) {
         try {
-            // Create service ticket
-            const ticket = await ServiceTicket.create(ticketData);
+            // Generate UUID for SoPhieuDV
+            const ticketWithId = {
+                ...ticketData,
+                SoPhieuDV: `DV${uuidv4().substring(0, 8)}` // Creates ID like "DV12345678"
+            };
+
+            const ticket = await ServiceTicket.create({
+                SoPhieuDV: ticketWithId.SoPhieuDV,
+                NgayLap: ticketData.NgayLap,
+                MaKhachHang: ticketData.MaKhachHang,
+                TongTien: ticketData.TongTien,
+                TongTienTraTruoc: ticketData.TongTienTraTruoc
+            });
             
             // Create details with the ticket's SoPhieuDV
             if (details && details.length > 0) {
-                const detailsWithTicket = details.map(detail => ({
+                const detailsWithIds = details.map(detail => ({
                     ...detail,
+                    MaChiTietDV: `CTDV${uuidv4().substring(0, 8)}`, // Creates ID like "CTDV12345678"
                     SoPhieuDV: ticket.SoPhieuDV
                 }));
                 
-                await ServiceTicketDetail.bulkCreate(detailsWithTicket);
+                await ServiceTicketDetail.bulkCreate(detailsWithIds);
             }
             
             // Return created ticket with details 
