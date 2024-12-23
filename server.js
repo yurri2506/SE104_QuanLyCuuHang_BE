@@ -1,10 +1,16 @@
 const { connect } = require('./src/config/database.js');
 const express = require('express');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 const routes = require('./src/routes');
 
 const app = express();
-const port = 3000;
+const port = 3000;  // Đảm bảo port là 3000
+
+app.use(cors({
+  origin: ['http://localhost:3001'], // Frontend port
+  credentials: true
+}));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
