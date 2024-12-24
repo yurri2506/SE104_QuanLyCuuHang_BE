@@ -1,5 +1,6 @@
 const Product = require("../models/product.model");
 const ProductCategory = require("../models/category.model");
+const { uploadProductImage } = require('../config/cloudinary');
 
 class ProductService {
   // Lấy tất cả sản phẩm kèm danh mục
@@ -54,8 +55,21 @@ class ProductService {
       );
     }
 
+    // Handle image upload if image file is provided
+    if (productData.imageFile) {
+      try {
+        const imageUrl = await uploadProductImage(productData.imageFile);
+        productData.HinhAnh = imageUrl;
+      } catch (error) {
+        throw new Error("Không thể tải lên hình ảnh: " + error.message);
+      }
+    }
+
     // Tạo sản phẩm mới
-    const newProduct = await Product.create(productData);
+    const newProduct = await Product.create({
+      ...productData,
+      HinhAnh: productData.HinhAnh || 'default-image.png'
+    });
     return newProduct;
   }
 
