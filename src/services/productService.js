@@ -1,5 +1,6 @@
 const Product = require("../models/product.model");
 const ProductCategory = require("../models/category.model");
+const { uploadProductImage } = require('../config/cloudinary');
 
 class ProductService {
   // Lấy tất cả sản phẩm kèm danh mục
@@ -41,21 +42,21 @@ class ProductService {
       throw new Error("Mã loại sản phẩm không tồn tại. Vui lòng kiểm tra lại.");
     }
 
-    // Kiểm tra trùng tên trong cùng loại sản phẩm
-    const duplicateName = await Product.findOne({
-      where: {
-        TenSanPham: productData.TenSanPham,
-        MaLoaiSanPham: productData.MaLoaiSanPham,
-      },
-    });
-    if (duplicateName) {
-      throw new Error(
-        "Tên sản phẩm đã tồn tại trong loại sản phẩm này. Vui lòng chọn tên khác."
-      );
+    // Handle image upload if image file is provided
+    if (productData.imageFile) {
+      try {
+        const imageUrl = await uploadProductImage(productData.imageFile);
+        productData.HinhAnh = imageUrl;
+      } catch (error) {
+        throw new Error("Không thể tải lên hình ảnh: " + error.message);
+      }
     }
 
     // Tạo sản phẩm mới
-    const newProduct = await Product.create(productData);
+    const newProduct = await Product.create({
+      ...productData,
+      HinhAnh: productData.HinhAnh || 'default-image.png'
+    });
     return newProduct;
   }
 
@@ -69,24 +70,6 @@ class ProductService {
 
     // Kiểm tra thông tin đầu vào nếu cập nhật
     this.validateProductData(productData);
-
-    // Kiểm tra trùng tên sản phẩm (khi cần)
-    if (
-      productData.TenSanPham &&
-      productData.TenSanPham !== product.TenSanPham
-    ) {
-      const duplicateName = await Product.findOne({
-        where: {
-          TenSanPham: productData.TenSanPham,
-          MaLoaiSanPham: productData.MaLoaiSanPham,
-        },
-      });
-      if (duplicateName) {
-        throw new Error(
-          "Tên sản phẩm đã tồn tại trong loại sản phẩm này. Vui lòng chọn tên khác."
-        );
-      }
-    }
 
     // Cập nhật sản phẩm
     return await product.update(productData);
@@ -107,21 +90,11 @@ class ProductService {
   validateProductData(productData) {
     if (
       !productData.TenSanPham ||
-      !productData.MaLoaiSanPham ||
-      productData.DonGia == null ||
-      productData.SoLuong == null
+      !productData.MaLoaiSanPham 
     ) {
       throw new Error(
         "Thông tin sản phẩm không đầy đủ. Vui lòng cung cấp đầy đủ thông tin."
       );
-    }
-
-    if (productData.DonGia <= 0) {
-      throw new Error("Đơn giá phải là một số dương.");
-    }
-
-    if (productData.SoLuong < 0 || !Number.isInteger(productData.SoLuong)) {
-      throw new Error("Số lượng phải là một số nguyên không âm.");
     }
   }
 }

@@ -2,17 +2,17 @@ const { v4: uuidv4 } = require("uuid"); // Thư viện để tạo mã tự đ�
 const PurchaseOrder = require("../models/purchaseOrder.model");
 const PurchaseDetail = require("../models/purchaseOrderDetails.model");
 const Provider = require("../models/provider.model");
+const Product = require("../models/product.model");
+const ProductCategory = require("../models/category.model");
 
 class PurchaseService {
   static async createPurchase(data) {
-    const { ngayLap, nhaCungCap, diaChi, soDienThoai, chiTietSanPham } = data;
+    const { soPhieu, ngayLap, nhaCungCap, chiTietSanPham } = data;
 
+    // Khởi tạo giao dịch
     const transaction = await PurchaseOrder.sequelize.transaction();
 
     try {
-      // Tạo mã phiếu mua hàng tự động (ví dụ: PH-UUID)
-      const soPhieu = `PH-${uuidv4().slice(0, 8).toUpperCase()}`;
-
       // Tính tổng tiền
       const tongTien = chiTietSanPham.reduce(
         (sum, item) => sum + item.thanhTien,
@@ -30,9 +30,10 @@ class PurchaseService {
         { transaction }
       );
 
-      // Lưu chi tiết sản phẩm
+      // Lưu chi tiết sản phẩm và cập nhật tồn kho
       const savedDetails = [];
       for (const product of chiTietSanPham) {
+        // Tạo chi tiết sản phẩm
         const detail = await PurchaseDetail.create(
           {
             MaChiTietMH: `${soPhieu}_${product.maSanPham}`,
@@ -44,12 +45,56 @@ class PurchaseService {
           },
           { transaction }
         );
-        savedDetails.push(detail);
+        
+        // Truy xuất mã loại sản phẩm
+        const currentProduct = await Product.findOne({
+          where: { MaSanPham: product.maSanPham },
+          transaction,
+        });
+
+        if (!currentProduct) {
+          throw new Error(`Không tìm thấy sản phẩm có mã ${product.maSanPham}`);
+        }
+
+        // Lấy thông tin loại sản phẩm
+        const productType = await ProductCategory.findOne({
+          where: { MaLoaiSanPham: currentProduct.MaLoaiSanPham },
+          transaction,
+        });
+
+        if (!productType) {
+          throw new Error(`Không tìm thấy loại sản phẩm cho mã ${currentProduct.MaLoaiSanPham}`);
+        }
+
+        // Tăng số lượng tồn kho = Tồn kho hiện tại + Số lượng mua thêm
+        const updatedQuantity = currentProduct.SoLuong + product.soLuong;
+
+        console.log("Số lượng update: ", updatedQuantity)  
+
+        // Cập nhật đơn giá = Đơn giá chi tiết * (1 + Phần trăm lợi nhuận)
+        const updatedPrice = product.donGia * (1 + productType.PhanTramLoiNhuan / 100);
+
+        await Product.update(
+          { 
+            SoLuong: updatedQuantity,
+            DonGia: updatedPrice
+          },
+          {
+            where: { MaSanPham: product.maSanPham },
+            transaction,
+          }
+        );
+
+        savedDetails.push({
+          ...detail.toJSON(),
+          TenLoaiSanPham: productType.TenLoaiSanPham
+        });
       }
 
+      // Commit giao dịch
       await transaction.commit();
 
-      // Trả về dữ liệu để frontend render
+      // Trả về kết quả
       return {
         message: "Phiếu mua hàng tạo thành công",
         purchaseOrder: {
@@ -61,6 +106,7 @@ class PurchaseService {
         },
       };
     } catch (error) {
+      // Rollback giao dịch khi có lỗi
       await transaction.rollback();
       throw new Error("Lỗi khi tạo phiếu mua hàng: " + error.message);
     }

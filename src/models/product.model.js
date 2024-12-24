@@ -21,12 +21,16 @@ const Product = sequelize.define('SANPHAM', {
     },
     DonGia: {
         type: DataTypes.DECIMAL(18, 2),
-        allowNull: false
+        allowNull: true,
     },
     SoLuong: {
         type: DataTypes.INTEGER,
-        allowNull: false 
-    }
+        allowNull: true
+    },
+        HinhAnh: {
+            type: DataTypes.STRING(300  ),
+            allowNull: true
+        }
 }, {
     tableName: 'SANPHAM',
     timestamps: true
