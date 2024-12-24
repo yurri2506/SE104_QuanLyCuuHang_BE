@@ -3,6 +3,8 @@ const UserRouter = require("./userRoute");
 const ProductRouter = require("./productRoute");
 const UnitRouter = require("./unitRoute");
 const CategoryRouter = require("./categoryRoute");
+// const warehouseManage = require('./warehouseManageRoute');
+
 const CustomerRoute = require('./customerRoute');
 const ServiceTicketRoute = require('./serviceTicketRoute');
 const ServiceTypeRoute = require('./serviceTypeRoute');
@@ -15,6 +17,7 @@ const routes = (app) => {
   app.use("/api/product", ProductRouter);
   app.use("/api/unit", UnitRouter);
   app.use("/api/category", CategoryRouter);
+  // app.use('/api/warehouse', warehouseManage);
   app.use("/api/customers", CustomerRoute);
   app.use("/api/services", ServiceTicketRoute);
   app.use("/api/service-types", ServiceTypeRoute);
