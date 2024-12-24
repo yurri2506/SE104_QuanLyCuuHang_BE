@@ -3,14 +3,13 @@ const PurchaseService = require("../services/purchaseOrderService");
 class PurchaseController {
   static async createPurchase(req, res) {
     try {
-      const { ngayLap, nhaCungCap, diaChi, soDienThoai, chiTietSanPham } =
+      const { soPhieu, ngayLap, nhaCungCap, chiTietSanPham } =
         req.body;
 
       const result = await PurchaseService.createPurchase({
+        soPhieu,
         ngayLap,
         nhaCungCap,
-        diaChi,
-        soDienThoai,
         chiTietSanPham,
       });
 
