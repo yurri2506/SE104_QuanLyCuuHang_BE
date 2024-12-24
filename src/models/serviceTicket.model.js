@@ -24,7 +24,7 @@ const ServiceTicket = sequelize.define('PHIEUDICHVU', {
     }
 }, {
     tableName: 'PHIEUDICHVU',
-    timestamps: false
+    timestamps: true
 });
 
 module.exports = ServiceTicket;

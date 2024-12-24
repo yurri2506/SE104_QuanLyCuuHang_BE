@@ -16,7 +16,7 @@ const Unit = sequelize.define(
   },
   {
     tableName: "DONVITINH",
-    timestamps: false,
+    timestamps: true
   }
 );
 

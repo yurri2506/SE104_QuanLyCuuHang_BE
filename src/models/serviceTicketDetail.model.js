@@ -47,7 +47,7 @@ const ServiceTicketDetail = sequelize.define('CHITIETDICHVU', {
     }
 }, {
     tableName: 'CHITIETDICHVU',
-    timestamps: false
+    timestamps: true
 });
 
 ServiceTicketDetail.belongsTo(ServiceTicket, {
