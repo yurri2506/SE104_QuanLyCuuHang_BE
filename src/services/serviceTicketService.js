@@ -5,44 +5,53 @@ const ServiceTicketDetail = require('../models/serviceTicketDetail.model');
 class ServiceTicketService {
     static async createServiceTicket(ticketData, details) {
         try {
-            // Generate UUID for SoPhieuDV
-            const ticketWithId = {
-                ...ticketData,
-                SoPhieuDV: `DV${uuidv4().substring(0, 8)}` // Creates ID like "DV12345678"
-            };
-
+            // Create the service ticket
             const ticket = await ServiceTicket.create({
-                SoPhieuDV: ticketWithId.SoPhieuDV,
+                SoPhieuDV: ticketData.SoPhieuDV,
                 NgayLap: ticketData.NgayLap,
                 MaKhachHang: ticketData.MaKhachHang,
                 TongTien: ticketData.TongTien,
                 TongTienTraTruoc: ticketData.TongTienTraTruoc
             });
             
-            // Create details with the ticket's SoPhieuDV
+            // Create details with all required fields
             if (details && details.length > 0) {
                 const detailsWithIds = details.map(detail => ({
-                    ...detail,
-                    MaChiTietDV: `CTDV${uuidv4().substring(0, 8)}`, // Creates ID like "CTDV12345678"
-                    SoPhieuDV: ticket.SoPhieuDV
+                    MaChiTietDV: `CTDV${uuidv4().substring(0, 8)}`,
+                    SoPhieuDV: ticket.SoPhieuDV,
+                    MaLoaiDichVu: detail.MaLoaiDichVu,
+                    SoLuong: detail.SoLuong,
+                    DonGiaDuocTinh: detail.DonGiaDuocTinh,
+                    ThanhTien: detail.ThanhTien,
+                    TraTruoc: detail.TraTruoc,
+                    ConLai: detail.ConLai,
+                    NgayGiao: detail.NgayGiao || null,
+                    TinhTrang: detail.TinhTrang || 'Chờ xử lý',
+                    ChiPhiRieng: detail.ChiPhiRieng || 0
                 }));
                 
                 await ServiceTicketDetail.bulkCreate(detailsWithIds);
+
+                // Recalculate total amount including all costs
+                const totalWithAllCosts = detailsWithIds.reduce((sum, detail) => 
+                    sum + detail.ThanhTien + (detail.ChiPhiRieng || 0), 0
+                );
+
+                // Update ticket with final total
+                await ticket.update({
+                    TongTien: totalWithAllCosts
+                });
             }
             
-            // Return created ticket with details 
+            // Return created ticket with details
             return await ServiceTicket.findByPk(ticket.SoPhieuDV, {
                 include: [{
-                    model: ServiceTicketDetail, 
+                    model: ServiceTicketDetail,
                     as: 'details'
                 }]
             });
+
         } catch (error) {
-            if (error.name === 'SequelizeValidationError') {
-                console.error('Validation Errors:', error.errors.map(err => err.message));
-            } else {
-                console.error('Error:', error);
-            }
             throw error;
         }
     }

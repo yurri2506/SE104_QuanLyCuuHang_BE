@@ -42,16 +42,41 @@ class UnitService {
 
   // Cập nhật đơn vị tính
   async updateUnit(MaDVTinh, data) {
-    const unit = await Unit.findByPk(MaDVTinh);
-    if (!unit) {
-      throw new Error("Không tìm thấy đơn vị tính với mã này.");
+    const transaction = await Unit.sequelize.transaction();
+    
+    try {
+      // Find existing unit
+      const unit = await Unit.findByPk(MaDVTinh, { transaction });
+      if (!unit) {
+        throw new Error("Không tìm thấy đơn vị tính với mã này.");
+      }
+  
+      // If unit code is being changed, update foreign key references
+      if (data.MaDVTinh && data.MaDVTinh !== MaDVTinh) {
+        // Update foreign key in ProductCategory table
+        await ProductCategory.update(
+          { MaDVTinh: data.MaDVTinh },
+          { 
+            where: { MaDVTinh: MaDVTinh },
+            transaction 
+          }
+        );
+      }
+  
+      // Update the unit
+      const updatedUnit = await unit.update(data, { transaction });
+  
+      await transaction.commit();
+  
+      return {
+        message: "Cập nhật đơn vị tính thành công.",
+        data: updatedUnit,
+      };
+  
+    } catch (error) {
+      await transaction.rollback();
+      throw new Error(`Lỗi khi cập nhật đơn vị tính: ${error.message}`);
     }
-
-    const updatedUnit = await unit.update(data);
-    return {
-      message: "Cập nhật đơn vị tính thành công.",
-      data: updatedUnit,
-    };
   }
 
   // Xóa đơn vị tính

@@ -45,26 +45,6 @@ class ProductCategoryService {
       throw new Error("Mã danh mục sản phẩm đã tồn tại.");
     }
 
-    if (data.ParentID) {
-      const parentCategory = await ProductCategory.findByPk(data.ParentID);
-      if (!parentCategory) {
-        throw new Error("Danh mục cha không tồn tại.");
-      }
-    }
-
-    const sameNameCategory = await ProductCategory.findOne({
-      where: {
-        TenLoaiSanPham: data.TenLoaiSanPham,
-        ParentID: data.ParentID,
-      },
-    });
-
-    if (sameNameCategory) {
-      throw new Error(
-        "Tên danh mục sản phẩm đã tồn tại dưới cùng một danh mục cha."
-      );
-    }
-
     return await ProductCategory.create(data);
   }
 
