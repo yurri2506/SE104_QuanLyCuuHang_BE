@@ -30,7 +30,7 @@ const SaleInvoiceDetail = sequelize.define('CHITIETPHIEUBANHANG', {
     }
 }, {
     tableName: 'CHITIETPHIEUBANHANG',
-    timestamps: false
+    timestamps: true
 });
 
 // Fix relationships for SaleInvoiceDetail
