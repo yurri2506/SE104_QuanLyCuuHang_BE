@@ -43,7 +43,8 @@ const ServiceTicketDetail = sequelize.define('CHITIETDICHVU', {
         type: DataTypes.STRING(50)
     },
     ChiPhiRieng: {
-        type: DataTypes.DECIMAL(18, 2)
+        type: DataTypes.DECIMAL(18, 2),
+        allowNull: true
     }
 }, {
     tableName: 'CHITIETDICHVU',
