@@ -20,7 +20,7 @@ const Customer = sequelize.define('KHACHHANG', {
     }
 }, {
     tableName: 'KHACHHANG',
-    timestamps: false
+    timestamps: true
 });
 
 module.exports = Customer;

@@ -35,7 +35,7 @@ const ProductCategory = sequelize.define(
   },
   {
     tableName: "LOAISANPHAM",
-    timestamps: false,
+    timestamps: true
   }
 );
 

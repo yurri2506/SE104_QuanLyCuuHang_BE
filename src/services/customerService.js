@@ -6,6 +6,7 @@ const SaleInvoice = require('../models/saleInvoice.model');
 const ServiceTicket = require('../models/serviceTicket.model');
 const ServiceTicketDetail = require('../models/serviceTicketDetail.model');
 const SaleInvoiceDetail = require('../models/saleInvoiceDetail.model');
+const Product = require('../models/product.model');
 
 class CustomerService {
     static async createCustomer(customerData) {
@@ -81,7 +82,21 @@ class CustomerService {
     }
 
     static async getCustomerById(id) {
-        const customer = await Customer.findByPk(id);
+        const customer = await Customer.findByPk(id, {
+            include: [{
+                model: SaleInvoice,
+                as: 'saleInvoices',
+                include: [{
+                    model: SaleInvoiceDetail,
+                    as: 'details',
+                    include: [{
+                        model: Product,
+                        as: 'product'
+                    }]
+                }]
+            }]
+        });
+        
         if (!customer) throw new Error('Customer not found');
         return customer;
     }

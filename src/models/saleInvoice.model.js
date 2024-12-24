@@ -21,7 +21,7 @@ const SaleInvoice = sequelize.define('PHIEUBANHANG', {
     }
 }, {
     tableName: 'PHIEUBANHANG',
-    timestamps: false
+    timestamps: true
 });
 
 // Define relationships
