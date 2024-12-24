@@ -26,7 +26,7 @@ const PurchaseOrder = sequelize.define(
   },
   {
     tableName: "PHIEUMUAHANG",
-    timestamps: false,
+    timestamps: true
   }
 );
 

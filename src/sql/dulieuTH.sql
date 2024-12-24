@@ -1,6 +1,3 @@
--- Thêm dữ liệu
-USE QLBH2
-
 INSERT INTO DONVITINH (MaDVTinh, TenDVTinh)
 VALUES 
     ('DVT01', N'Chiếc'),          -- Dùng cho bông tai, vòng tay, dây chuyền
@@ -78,7 +75,7 @@ VALUES
     -- Sản phẩm cho danh mục LSP03_1 (Vòng tay kim cương)
     ('SP17', N'Vòng tay kim cương cao cấp', 'LSP03_1', 25000000, 5),
     ('SP18', N'Vòng tay kim cương thiết kế', 'LSP03_1', 22000000, 8),
-    ('SP19', N'Vòng tay kim cương mẫu A', 'LSP03_1', 26000000, 4),
+    ('SP19', N'Vòng tay kim cương mẫu A', 'LSP03_1', 26000000, 4),	
     ('SP20', N'Vòng tay kim cương mẫu B', 'LSP03_1', 24000000, 6),
 
     -- Sản phẩm cho danh mục LSP03_2 (Nhẫn kim cương)
@@ -107,7 +104,3 @@ VALUES
     ('NCC013', 'Green Gemstone Supply', '0923456789', '12 Đường Hoàng Diệu, Quận 4, Hà Nội'),
     ('NCC014', 'Thế Giới Đá Quý', '0901234567', '34 Đường Lê Thanh Nghị, Đà Nẵng');
     
-SELECT * FROM DONVITINH;
-SELECT * FROM SANPHAM;
-SELECT * FROM LOAISANPHAM;
-SELECT * FROM NHACUNGCAP;

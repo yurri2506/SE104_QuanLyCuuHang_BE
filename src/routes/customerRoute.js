@@ -5,10 +5,10 @@ const verifyToken = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/', verifyToken, createCustomer);
-router.put('/:id', verifyToken, updateCustomer);
-router.delete('/:id', verifyToken, deleteCustomer);
-router.get('/', verifyToken, getAllCustomers);
-router.get('/:id', verifyToken, getCustomerById);
+router.post('/create', verifyToken, createCustomer);
+router.put('/update/:id', verifyToken, updateCustomer);
+router.delete('/delete/:id', verifyToken, deleteCustomer);
+router.get('/get-all', verifyToken, getAllCustomers);
+router.get('/get-by-id/:id', verifyToken, getCustomerById);
 
-module.exports = router;
+module.exports = router;   

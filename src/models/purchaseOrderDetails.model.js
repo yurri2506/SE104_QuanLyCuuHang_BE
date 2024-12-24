@@ -32,7 +32,7 @@ const PurchaseDetail = sequelize.define(
   },
   {
     tableName: "CHITIETPHIEUMUAHANG",
-    timestamps: false,
+    timestamps: true
   }
 );
 

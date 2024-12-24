@@ -21,7 +21,7 @@ const ServiceType = sequelize.define('LOAIDICHVU', {
     }
 }, {
     tableName: 'LOAIDICHVU',
-    timestamps: false
+    timestamps: true
 });
 
 module.exports = ServiceType;

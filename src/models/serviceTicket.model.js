@@ -1,4 +1,3 @@
-
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
@@ -22,14 +21,10 @@ const ServiceTicket = sequelize.define('PHIEUDICHVU', {
     TongTienTraTruoc: {
         type: DataTypes.DECIMAL(18, 2),
         allowNull: false
-    },
-    TinhTrang: {
-        type: DataTypes.STRING(50),
-        allowNull: false
     }
 }, {
     tableName: 'PHIEUDICHVU',
-    timestamps: false
+    timestamps: true
 });
 
 module.exports = ServiceTicket;

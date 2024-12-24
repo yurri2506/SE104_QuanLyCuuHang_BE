@@ -29,7 +29,7 @@ const Product = sequelize.define('SANPHAM', {
     }
 }, {
     tableName: 'SANPHAM',
-    timestamps: false
+    timestamps: true
 });
 
 // Define relationship

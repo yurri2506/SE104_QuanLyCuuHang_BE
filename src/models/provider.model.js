@@ -24,7 +24,7 @@ const Provider = sequelize.define(
   },
   {
     tableName: "NHACUNGCAP",
-    timestamps: false,
+    timestamps: true
   }
 );
 
