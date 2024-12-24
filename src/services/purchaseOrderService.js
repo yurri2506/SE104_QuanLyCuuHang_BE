@@ -69,12 +69,14 @@ class PurchaseService {
         // Tăng số lượng tồn kho = Tồn kho hiện tại + Số lượng mua thêm
         const updatedQuantity = currentProduct.SoLuong + product.soLuong;
 
+        console.log("Số lượng update: ", updatedQuantity)  
+
         // Cập nhật đơn giá = Đơn giá chi tiết * (1 + Phần trăm lợi nhuận)
         const updatedPrice = product.donGia * (1 + productType.PhanTramLoiNhuan / 100);
 
         await Product.update(
           { 
-            SoLuongTonKho: updatedQuantity,
+            SoLuong: updatedQuantity,
             DonGia: updatedPrice
           },
           {
