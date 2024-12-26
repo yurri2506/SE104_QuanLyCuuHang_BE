@@ -8,4 +8,7 @@ router.post('/create', productController.createProduct);
 router.patch('/update/:id', productController.updateProduct);
 router.delete('/delete/:id', productController.deleteProduct);
 
+// Route to update isDelete field
+router.patch('/soft-delete/:id', productController.softDeleteProduct);
+
 module.exports = router;

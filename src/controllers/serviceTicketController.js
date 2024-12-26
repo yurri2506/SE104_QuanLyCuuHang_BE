@@ -4,9 +4,12 @@ const createServiceTicket = async (req, res) => {
     try {
         const { ticketData, details } = req.body;
         const ticket = await ServiceTicketService.createServiceTicket(ticketData, details);
-        return res.status(201).json(ticket);
+        return res.status(201).json({
+            message: 'Tạo phiếu dịch vụ thành công',
+            data: ticket
+        });
     } catch (error) {
-        return res.status(400).json({ message: error.message});
+        return res.status(400).json({ message: error.message });
     }
 };
 
@@ -32,7 +35,10 @@ const getServiceTicketById = async (req, res) => {
 const updateServiceTicket = async (req, res) => {
     try {
         const ticket = await ServiceTicketService.updateServiceTicket(req.params.id, req.body);
-        return res.status(200).json(ticket);
+        return res.status(200).json({
+            message: 'Cập nhật phiếu dịch vụ thành công',
+            data: ticket
+        });
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }
