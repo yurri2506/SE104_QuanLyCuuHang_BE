@@ -37,6 +37,8 @@ PurchaseOrder.hasMany(PurchaseDetail, {
   as: "ChiTietSanPham", // Alias cho frontend
 });
 
+
+
 PurchaseDetail.belongsTo(PurchaseOrder, {
   foreignKey: "SoPhieu",
   targetKey: "SoPhieu",

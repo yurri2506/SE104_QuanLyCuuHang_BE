@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
+const Product = require("./product.model");
 
 const PurchaseDetail = sequelize.define(
   "CHITIETPHIEUMUAHANG",
@@ -35,5 +36,10 @@ const PurchaseDetail = sequelize.define(
     timestamps: true
   }
 );
+
+PurchaseDetail.belongsTo(Product, {
+  foreignKey: "MaSanPham",
+  as: "product"
+});
 
 module.exports = PurchaseDetail;
