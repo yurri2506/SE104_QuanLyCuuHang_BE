@@ -1,7 +1,8 @@
 const productService = require("../services/productService");
+const { uploadToCloudinary } = require("../config/cloudinary");
 
 class ProductController {
-  // Lấy tất cả sản phẩm
+  // Get all products
   async getAllProducts(req, res) {
     try {
       const products = await productService.getAllProducts();
@@ -11,7 +12,7 @@ class ProductController {
     }
   }
 
-  // Lấy sản phẩm theo ID
+  // Get product by ID
   async getProductById(req, res) {
     try {
       const { id } = req.params;
@@ -30,51 +31,100 @@ class ProductController {
     }
   }
 
-  // Tạo sản phẩm mới
+  // Create new product
   async createProduct(req, res) {
     try {
-      const productData = req.body;
+      console.log('Received request:', {
+        body: req.body,
+        file: req.file ? {
+          filename: req.file.filename,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          path: req.file.path
+        } : 'No file'
+      });
 
-      if (!productData || Object.keys(productData).length === 0) {
-        return res
-          .status(400)
-          .json({ error: "Dữ liệu sản phẩm không được để trống." });
+      if (!req.body.TenSanPham || !req.body.MaLoaiSanPham || !req.body.MaSanPham) {
+        return res.status(400).json({ 
+          error: "Thiếu thông tin sản phẩm bắt buộc.",
+          received: req.body 
+        });
+      }
+
+      const productData = {
+        TenSanPham: req.body.TenSanPham,
+        MaLoaiSanPham: req.body.MaLoaiSanPham,
+        MaSanPham: req.body.MaSanPham,
+        DonGia: req.body.DonGia || 0,
+        SoLuong: req.body.SoLuong || 0
+      };
+
+      // Handle image upload
+      if (req.file) {
+        try {
+          console.log('Uploading file:', req.file.path);
+          const imageUrl = await uploadToCloudinary(req.file);
+          productData.HinhAnh = imageUrl;
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          return res.status(400).json({ 
+            error: "Lỗi khi tải lên hình ảnh.",
+            details: uploadError.message 
+          });
+        }
       }
 
       const newProduct = await productService.createProduct(productData);
       res.status(201).json({
         message: "Sản phẩm đã được tạo thành công.",
-        product: newProduct,
+        product: newProduct
       });
     } catch (error) {
-      res.status(400).json({ error: error.message });
+      console.error('Create product error:', error);
+      res.status(500).json({ 
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
-  // Cập nhật sản phẩm
+  // Update product
   async updateProduct(req, res) {
     try {
       const { id } = req.params;
+      const productData = req.body;
+      const imageFile = req.file;
+
       if (!id) {
         return res.status(400).json({ error: "ID sản phẩm không được để trống." });
       }
 
-      const productData = req.body;
-      if (!productData || Object.keys(productData).length === 0) {
-        return res.status(400).json({ error: "Dữ liệu cập nhật không được để trống." });
+      // Handle image upload if present
+      if (imageFile) {
+        try {
+          const imageUrl = await uploadToCloudinary(imageFile);
+          productData.HinhAnh = imageUrl;
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          return res.status(400).json({ 
+            error: "Lỗi khi tải lên hình ảnh.",
+            details: uploadError.message 
+          });
+        }
       }
 
       const updatedProduct = await productService.updateProduct(id, productData);
       res.status(200).json({
         message: "Sản phẩm đã được cập nhật thành công.",
-        product: updatedProduct,
+        product: updatedProduct
       });
     } catch (error) {
+      console.error('Update error:', error);
       res.status(400).json({ error: error.message });
     }
   }
 
-  // Xóa sản phẩm
+  // Delete product
   async deleteProduct(req, res) {
     try {
       const { id } = req.params;
