@@ -71,13 +71,9 @@ class PurchaseService {
 
         console.log("Số lượng update: ", updatedQuantity)  
 
-        // Cập nhật đơn giá = Đơn giá chi tiết * (1 + Phần trăm lợi nhuận)
-        const updatedPrice = product.donGia * (1 + productType.PhanTramLoiNhuan / 100);
-
         await Product.update(
           { 
             SoLuong: updatedQuantity,
-            DonGia: updatedPrice
           },
           {
             where: { MaSanPham: product.maSanPham },
@@ -113,126 +109,222 @@ class PurchaseService {
   }
 
   static async getAllPurchases() {
-    const purchases = await PurchaseOrder.findAll({
-      include: {
-        model: PurchaseDetail,
-        as: "ChiTietSanPham", // Alias đã định nghĩa
-      },
-    });
+    const purchases = await PurchaseOrder.findAll();
 
-    // Format dữ liệu cho frontend
     return purchases.map((purchase) => ({
       SoPhieu: purchase.SoPhieu,
       NgayLap: purchase.NgayLap,
       MaNCC: purchase.MaNCC,
       TongTien: purchase.TongTien,
-      ChiTietSanPham: purchase.CHITIETPHIEUMUAHANGs, // Tự động join qua include
     }));
   }
 
   static async getPurchaseDetails(soPhieu) {
-    const purchase = await PurchaseOrder.findOne({
+    const purchaseDetails = await PurchaseDetail.findAll({
       where: { SoPhieu: soPhieu },
       include: [
         {
-          model: PurchaseDetail,
-          as: "ChiTietSanPham", // Alias đã định nghĩa trong model
-        },
-        {
-          model: Provider,
-          as: "NhaCungCap", // Lấy thông tin nhà cung cấp
-        },
-      ],
+          model: Product,
+          attributes: ['MaLoaiSanPham'],
+          include: [
+            {
+              model: ProductCategory,
+              attributes: ['TenLoaiSanPham']
+            }
+          ]
+        }
+      ]
     });
 
-    if (!purchase) {
-      throw new Error("Phiếu mua hàng không tồn tại");
-    }
-
-    // Chuẩn hóa dữ liệu chi tiết sản phẩm
-    const chiTietSanPham = purchase.ChiTietSanPham.map((detail) => ({
+    return purchaseDetails.map(detail => ({
+      MaChiTietMH: detail.MaChiTietMH,
+      SoPhieu: detail.SoPhieu,
       MaSanPham: detail.MaSanPham,
       SoLuong: detail.SoLuong,
       DonGia: detail.DonGia,
       ThanhTien: detail.ThanhTien,
+      MaLoaiSanPham: detail.Product.MaLoaiSanPham,
+      TenLoaiSanPham: detail.Product.ProductCategory.TenLoaiSanPham
     }));
-
-    // Trả về dữ liệu được format
-    return {
-      SoPhieu: purchase.SoPhieu,
-      NgayLap: purchase.NgayLap,
-      NhaCungCap: {
-        MaNCC: purchase.NhaCungCap.MaNCC,
-        TenNCC: purchase.NhaCungCap.TenNCC,
-        SoDienThoai: purchase.NhaCungCap.SoDienThoai,
-        DiaChi: purchase.NhaCungCap.DiaChi,
-      },
-      TongTien: purchase.TongTien,
-      ChiTietSanPham: chiTietSanPham,
-    };
   }
 
-  static async updatePurchase(soPhieu, updatedData) {
+  // static async updatePurchase(soPhieu, updatedData) {
+  //   const transaction = await PurchaseOrder.sequelize.transaction();
+
+  //   try {
+  //     const { NgayLap, MaNCC, ChiTietSanPham } = updatedData;
+
+  //     // Kiểm tra nếu ChiTietSanPham không phải là mảng
+  //     if (!Array.isArray(ChiTietSanPham)) {
+  //       throw new Error("Dữ liệu ChiTietSanPham phải là một mảng");
+  //     }
+
+  //     // Tìm phiếu mua hàng
+  //     const purchaseOrder = await PurchaseOrder.findByPk(soPhieu);
+  //     if (!purchaseOrder) {
+  //       throw new Error("Phiếu mua hàng không tồn tại");
+  //     }
+
+  //     // Cập nhật phiếu mua hàng
+  //     await purchaseOrder.update(
+  //       {
+  //         NgayLap: NgayLap || purchaseOrder.NgayLap,
+  //         MaNCC: MaNCC || purchaseOrder.MaNCC,
+  //       },
+  //       { transaction }
+  //     );
+
+  //     // Xóa các chi tiết cũ
+  //     await PurchaseDetail.destroy({
+  //       where: { SoPhieu: soPhieu },
+  //       transaction,
+  //     });
+
+  //     // Lưu các chi tiết mới
+  //     const updatedDetails = [];
+  //     for (const product of ChiTietSanPham) {
+  //       const detail = await PurchaseDetail.create(
+  //         {
+  //           MaChiTietMH: `${soPhieu}_${product.MaSanPham}`,
+  //           SoPhieu: soPhieu,
+  //           MaSanPham: product.MaSanPham,
+  //           SoLuong: product.SoLuong,
+  //           DonGia: parseFloat(product.DonGia), // Chuyển đổi DonGia thành số thực
+  //           ThanhTien: parseFloat(product.ThanhTien), // Chuyển đổi ThanhTien thành số thực
+  //         },
+  //         { transaction }
+  //       );
+  //       updatedDetails.push(detail);
+  //     }
+
+  //     await transaction.commit();
+
+  //     // Trả về dữ liệu được cập nhật
+  //     return {
+  //       message: "Cập nhật phiếu mua hàng thành công",
+  //       purchaseOrder: {
+  //         SoPhieu: soPhieu,
+  //         NgayLap: NgayLap || purchaseOrder.NgayLap,
+  //         MaNCC: MaNCC || purchaseOrder.MaNCC,
+  //         ChiTietSanPham: updatedDetails,
+  //       },
+  //     };
+  //   } catch (error) {
+  //     await transaction.rollback();
+  //     throw new Error(`Lỗi khi cập nhật phiếu mua hàng: ${error.message}`);
+  //   }
+  // }
+
+  // Chưa test thử, mới chỉ code
+  static async updatePurchase(soPhieu, { updatedDetails, addDetails, deleteDetails }) {
     const transaction = await PurchaseOrder.sequelize.transaction();
 
     try {
-      const { NgayLap, MaNCC, ChiTietSanPham } = updatedData;
-
-      // Kiểm tra nếu ChiTietSanPham không phải là mảng
-      if (!Array.isArray(ChiTietSanPham)) {
-        throw new Error("Dữ liệu ChiTietSanPham phải là một mảng");
-      }
-
       // Tìm phiếu mua hàng
       const purchaseOrder = await PurchaseOrder.findByPk(soPhieu);
       if (!purchaseOrder) {
         throw new Error("Phiếu mua hàng không tồn tại");
       }
 
-      // Cập nhật phiếu mua hàng
-      await purchaseOrder.update(
-        {
+      // Kiểm tra ngày tạo phiếu mua hàng
+      const currentDate = new Date();
+      const orderDate = new Date(purchaseOrder.NgayLap);
+      const timeDiff = Math.abs(currentDate - orderDate);
+      const dayDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)); // Chuyển đổi sang số ngày
+
+      if (dayDiff > 2) {
+        if (addDetails && addDetails.length > 0) {
+          throw new Error("Không thể thêm chi tiết sau 2 ngày kể từ ngày tạo phiếu mua hàng.");
+        }
+
+        if (deleteDetails && deleteDetails.length > 0) {
+          throw new Error("Không thể xóa chi tiết sau 2 ngày kể từ ngày tạo phiếu mua hàng.");
+        }
+      }
+
+      // Cập nhật thông tin phiếu mua hàng
+      if (updatedDetails) {
+        const { NgayLap, MaNCC } = updatedDetails;
+        await purchaseOrder.update({
           NgayLap: NgayLap || purchaseOrder.NgayLap,
           MaNCC: MaNCC || purchaseOrder.MaNCC,
-        },
-        { transaction }
-      );
+        }, { transaction });
+      }
 
-      // Xóa các chi tiết cũ
-      await PurchaseDetail.destroy({
-        where: { SoPhieu: soPhieu },
-        transaction,
-      });
-
-      // Lưu các chi tiết mới
-      const updatedDetails = [];
-      for (const product of ChiTietSanPham) {
-        const detail = await PurchaseDetail.create(
-          {
+      // Thêm chi tiết phiếu mua hàng mới
+      if (addDetails && addDetails.length > 0) {
+        for (const product of addDetails) {
+          const detail = await PurchaseDetail.create({
             MaChiTietMH: `${soPhieu}_${product.MaSanPham}`,
             SoPhieu: soPhieu,
             MaSanPham: product.MaSanPham,
             SoLuong: product.SoLuong,
-            DonGia: parseFloat(product.DonGia), // Chuyển đổi DonGia thành số thực
-            ThanhTien: parseFloat(product.ThanhTien), // Chuyển đổi ThanhTien thành số thực
-          },
-          { transaction }
-        );
-        updatedDetails.push(detail);
+            DonGia: product.DonGia,
+            ThanhTien: product.ThanhTien,
+          }, { transaction });
+
+          const currentProduct = await Product.findOne({
+            where: { MaSanPham: product.MaSanPham },
+            transaction,
+          });
+
+          if (!currentProduct) {
+            throw new Error(`Không tìm thấy sản phẩm có mã ${product.MaSanPham}`);
+          }
+
+          const productType = await ProductCategory.findOne({
+            where: { MaLoaiSanPham: currentProduct.MaLoaiSanPham },
+            transaction,
+          });
+
+          if (!productType) {
+            throw new Error(`Không tìm thấy loại sản phẩm cho mã ${currentProduct.MaLoaiSanPham}`);
+          }
+
+          const updatedQuantity = currentProduct.SoLuong + product.SoLuong;
+
+          await Product.update({
+            SoLuong: updatedQuantity,
+            DonGia: updatedPrice,
+          }, {
+            where: { MaSanPham: product.MaSanPham },
+            transaction,
+          });
+        }
+      }
+
+      // Xóa chi tiết phiếu mua hàng
+      if (deleteDetails && deleteDetails.length > 0) {
+        for (const detail of deleteDetails) {
+          const { MaChiTietMH, MaSanPham, SoLuong } = detail;
+          await PurchaseDetail.update({
+            SoLuong: 0,
+            DonGia: 0,
+            ThanhTien: 0,
+          }, {
+            where: { MaChiTietMH, SoPhieu: soPhieu },
+            transaction,
+          });
+
+          const currentProduct = await Product.findOne({
+            where: { MaSanPham: MaSanPham },
+            transaction,
+          });
+
+          if (currentProduct) {
+            const updatedQuantity = currentProduct.SoLuong - SoLuong;
+            await Product.update({
+              SoLuong: updatedQuantity,
+            }, {
+              where: { MaSanPham: MaSanPham },
+              transaction,
+            });
+          }
+        }
       }
 
       await transaction.commit();
-
-      // Trả về dữ liệu được cập nhật
-      return {
-        message: "Cập nhật phiếu mua hàng thành công",
-        purchaseOrder: {
-          SoPhieu: soPhieu,
-          NgayLap: NgayLap || purchaseOrder.NgayLap,
-          MaNCC: MaNCC || purchaseOrder.MaNCC,
-          ChiTietSanPham: updatedDetails,
-        },
-      };
+      return { message: "Cập nhật phiếu mua hàng thành công" };
     } catch (error) {
       await transaction.rollback();
       throw new Error(`Lỗi khi cập nhật phiếu mua hàng: ${error.message}`);
