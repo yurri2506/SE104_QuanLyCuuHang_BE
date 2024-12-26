@@ -21,6 +21,14 @@ const ServiceTicket = sequelize.define('PHIEUDICHVU', {
     TongTienTraTruoc: {
         type: DataTypes.DECIMAL(18, 2),
         allowNull: false
+    },
+    TinhTrang: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        defaultValue: 'Chưa giao',
+        validate: {
+            isIn: [['Đã giao', 'Chưa giao']]
+        }
     }
 }, {
     tableName: 'PHIEUDICHVU',

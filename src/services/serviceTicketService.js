@@ -5,54 +5,70 @@ const ServiceTicketDetail = require('../models/serviceTicketDetail.model');
 class ServiceTicketService {
     static async createServiceTicket(ticketData, details) {
         try {
-            // Create the service ticket
+            // Validate ticket status
+            if (ticketData.TinhTrang && !['Đã giao', 'Chưa giao'].includes(ticketData.TinhTrang)) {
+                throw new Error('Tình trạng chỉ có thể là "Đã giao" hoặc "Chưa giao"');
+            }
+
+            // Create the service ticket with auto-generated ID if not provided
             const ticket = await ServiceTicket.create({
-                SoPhieuDV: ticketData.SoPhieuDV,
+                SoPhieuDV: ticketData.SoPhieuDV || `DV${uuidv4().substring(0, 8)}`,
                 NgayLap: ticketData.NgayLap,
                 MaKhachHang: ticketData.MaKhachHang,
                 TongTien: ticketData.TongTien,
-                TongTienTraTruoc: ticketData.TongTienTraTruoc
+                TongTienTraTruoc: ticketData.TongTienTraTruoc,
+                TinhTrang: ticketData.TinhTrang || 'Chưa giao'
             });
             
-            // Create details with all required fields
+            // Create details with validation
             if (details && details.length > 0) {
-                const detailsWithIds = details.map(detail => ({
-                    MaChiTietDV: `CTDV${uuidv4().substring(0, 8)}`,
-                    SoPhieuDV: ticket.SoPhieuDV,
-                    MaLoaiDichVu: detail.MaLoaiDichVu,
-                    SoLuong: detail.SoLuong,
-                    DonGiaDuocTinh: detail.DonGiaDuocTinh,
-                    ThanhTien: detail.ThanhTien,
-                    TraTruoc: detail.TraTruoc,
-                    ConLai: detail.ConLai,
-                    NgayGiao: detail.NgayGiao || null,
-                    TinhTrang: detail.TinhTrang || 'Chờ xử lý',
-                    ChiPhiRieng: detail.ChiPhiRieng || 0
-                }));
+                const detailsWithIds = details.map(detail => {
+                    // Calculate final price including special costs
+                    const finalPrice = detail.DonGiaDuocTinh + (detail.ChiPhiRieng || 0);
+                    
+                    // Calculate total amount
+                    const thanhTien = detail.SoLuong * finalPrice;
+                    
+                    // Validate minimum prepayment (50% rule)
+                    const minPrepayment = thanhTien * 0.5;
+                    const traTruoc = detail.TraTruoc || 0; // Default to 0 if not provided
+                    if (traTruoc < minPrepayment) {
+                        throw new Error(`Số tiền trả trước phải >= 50% thành tiền (${minPrepayment})`);
+                    }
+
+                    return {
+                        MaChiTietDV: detail.MaChiTietDV || `CTDV${uuidv4().substring(0, 8)}`,
+                        SoPhieuDV: ticket.SoPhieuDV,
+                        MaLoaiDichVu: detail.MaLoaiDichVu,
+                        SoLuong: detail.SoLuong,
+                        DonGiaDuocTinh: finalPrice,
+                        ThanhTien: thanhTien,
+                        TraTruoc: traTruoc,
+                        ConLai: thanhTien - traTruoc,
+                        NgayGiao: detail.NgayGiao || null,
+                        TinhTrang: detail.TinhTrang || 'Chưa giao',
+                        ChiPhiRieng: detail.ChiPhiRieng || 0
+                    };
+                });
                 
                 await ServiceTicketDetail.bulkCreate(detailsWithIds);
 
-                // Recalculate total amount including all costs
+                // Recalculate total with special costs
                 const totalWithAllCosts = detailsWithIds.reduce((sum, detail) => 
-                    sum + detail.ThanhTien + (detail.ChiPhiRieng || 0), 0
+                    sum + detail.ThanhTien, 0
                 );
 
                 // Update ticket with final total
-                await ticket.update({
-                    TongTien: totalWithAllCosts
-                });
+                await ticket.update({ TongTien: totalWithAllCosts });
             }
             
-            // Return created ticket with details
+            // Return complete ticket with details
             return await ServiceTicket.findByPk(ticket.SoPhieuDV, {
-                include: [{
-                    model: ServiceTicketDetail,
-                    as: 'details'
-                }]
+                include: [{ model: ServiceTicketDetail, as: 'details' }]
             });
 
         } catch (error) {
-            throw error;
+            throw new Error(`Lỗi tạo phiếu dịch vụ: ${error.message}`);
         }
     }
 
@@ -63,74 +79,6 @@ class ServiceTicketService {
                 as: 'details'
             }]
         });
-    }
-
-    static async getServiceTicketById(id) {
-        return await ServiceTicket.findByPk(id, {
-            include: [{
-                model: ServiceTicketDetail,
-                as: 'details'
-            }]
-        });
-    }
-
-    static async updateServiceTicket(id, { ticketData, details }) {
-        try {
-            // Update service ticket if ticketData is provided
-            if (ticketData) {
-                const [updated] = await ServiceTicket.update(ticketData, {
-                    where: { SoPhieuDV: id }
-                });
-                if (!updated) throw new Error('Service ticket not found');
-            }
-
-            // Update details if details array is provided
-            if (details && details.length > 0) {
-                // Delete existing details first
-                await ServiceTicketDetail.destroy({
-                    where: { SoPhieuDV: id }
-                });
-
-                // Create new details
-                const detailsWithTicket = details.map(detail => ({
-                    ...detail,
-                    SoPhieuDV: id
-                }));
-                await ServiceTicketDetail.bulkCreate(detailsWithTicket);
-            }
-
-            // Return updated ticket with details
-            return await ServiceTicket.findByPk(id, {
-                include: [{
-                    model: ServiceTicketDetail,
-                    as: 'details'
-                }]
-            });
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    static async deleteServiceTicket(id) {
-        try {
-            // Delete related service ticket details first
-            await ServiceTicketDetail.destroy({
-                where: { SoPhieuDV: id }
-            });
-
-            // Then delete the main service ticket
-            const deleted = await ServiceTicket.destroy({
-                where: { SoPhieuDV: id }
-            });
-
-            if (!deleted) {
-                throw new Error('Service ticket not found');
-            }
-
-            return { message: 'Service ticket deleted successfully' };
-        } catch (error) {
-            throw error; 
-        }
     }
 }
 

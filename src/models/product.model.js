@@ -27,14 +27,20 @@ const Product = sequelize.define('SANPHAM', {
         type: DataTypes.INTEGER,
         allowNull: true
     },
-        HinhAnh: {
+    HinhAnh: {
             type: DataTypes.STRING(300  ),
             allowNull: true
-        }
+    },
+    isDelete: { // Soft delete
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    }
 }, {
     tableName: 'SANPHAM',
     timestamps: true
 });
+
 
 // Define relationship
 Product.belongsTo(ProductCategory, {
