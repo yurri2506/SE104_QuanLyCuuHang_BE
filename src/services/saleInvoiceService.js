@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const SaleInvoice = require('../models/saleInvoice.model');
 const SaleInvoiceDetail = require('../models/saleInvoiceDetail.model');
 const Product = require('../models/product.model');
+const ProductCategory = require('../models/category.model');
 
 class SaleInvoiceService {
     static async createSaleInvoice(data) {
@@ -11,39 +12,11 @@ class SaleInvoiceService {
         const transaction = await SaleInvoice.sequelize.transaction();
     
         try {
-            // Tính tổng tiền
-            const tongTien = chiTietSanPham.reduce(
-                (sum, item) => sum + item.thanhTien,
-                0
-            );
-    
-            // Lưu hóa đơn bán hàng
-            const saleInvoice = await SaleInvoice.create(
-                {
-                    SoPhieuBH: soPhieu,
-                    NgayLap: ngayLap,
-                    MaKhachHang: khachHang,
-                    TongTien: tongTien,
-                },
-                { transaction }
-            );
-    
             // Lưu chi tiết sản phẩm và cập nhật tồn kho
             const savedDetails = [];
-            for (const product of chiTietSanPham) {
-                // Tạo chi tiết sản phẩm với ID tự sinh
-                const detail = await SaleInvoiceDetail.create(
-                    {
-                        MaChiTietBH: `${soPhieu}_${product.maSanPham}`,
-                        SoPhieuBH: soPhieu,
-                        MaSanPham: product.maSanPham,
-                        SoLuong: product.soLuong,
-                        DonGiaBanRa: product.donGia,
-                        ThanhTien: product.thanhTien,
-                    },
-                    { transaction }
-                );
+            let tongTien = 0; // Tổng tiền sẽ được tính sau khi tính thành tiền của từng chi tiết
     
+            for (const product of chiTietSanPham) {
                 // Truy xuất sản phẩm hiện tại
                 const currentProduct = await Product.findOne({
                     where: { MaSanPham: product.maSanPham },
@@ -53,6 +26,19 @@ class SaleInvoiceService {
                 if (!currentProduct) {
                     throw new Error(`Không tìm thấy sản phẩm có mã ${product.maSanPham}`);
                 }
+    
+                // Lấy thông tin loại sản phẩm
+                const productType = await ProductCategory.findOne({
+                    where: { MaLoaiSanPham: currentProduct.MaLoaiSanPham },
+                    transaction,
+                });
+    
+                if (!productType) {
+                    throw new Error(`Không tìm thấy loại sản phẩm cho mã ${currentProduct.MaLoaiSanPham}`);
+                }
+    
+                // Tính toán đơn giá bán ra
+                const updatedPrice = currentProduct.DonGia * (1 + productType.PhanTramLoiNhuan / 100);
     
                 // Giảm số lượng tồn kho = Tồn kho hiện tại - Số lượng bán
                 const updatedQuantity = currentProduct.SoLuong - product.soLuong;
@@ -72,8 +58,35 @@ class SaleInvoiceService {
                     }
                 );
     
+                // Tạo chi tiết sản phẩm với giá bán cập nhật
+                const thanhTien = updatedPrice * product.soLuong;
+                tongTien += thanhTien; // Cộng thành tiền vào tổng tiền
+    
+                const detail = await SaleInvoiceDetail.create(
+                    {
+                        MaChiTietBH: `${soPhieu}_${product.maSanPham}`,
+                        SoPhieuBH: soPhieu,
+                        MaSanPham: product.maSanPham,
+                        SoLuong: product.soLuong,
+                        DonGiaBanRa: updatedPrice,
+                        ThanhTien: thanhTien,
+                    },
+                    { transaction }
+                );
+    
                 savedDetails.push(detail.toJSON());
             }
+    
+            // Lưu hóa đơn bán hàng với tổng tiền đã tính
+            const saleInvoice = await SaleInvoice.create(
+                {
+                    SoPhieuBH: soPhieu,
+                    NgayLap: ngayLap,
+                    MaKhachHang: khachHang,
+                    TongTien: tongTien,
+                },
+                { transaction }
+            );
     
             // Commit giao dịch
             await transaction.commit();
@@ -95,6 +108,7 @@ class SaleInvoiceService {
             throw new Error("Lỗi khi tạo hóa đơn bán hàng: " + error.message);
         }
     }
+    
     
 
     static async getAllSaleInvoices() {
@@ -143,26 +157,18 @@ class SaleInvoiceService {
     
             // Cập nhật thông tin hóa đơn nếu updatedDetails được cung cấp
             if (updatedDetails) {
-                const { NgayLap, MaKH, TongTien } = updatedDetails;
+                const { NgayLap, MaKH } = updatedDetails;
                 await saleInvoice.update({
                     NgayLap: NgayLap || saleInvoice.NgayLap,
                     MaKH: MaKH || saleInvoice.MaKH,
-                    TongTien: TongTien || saleInvoice.TongTien,
                 }, { transaction });
             }
+    
+            let tongTien = 0;
     
             // Xử lý thêm chi tiết hóa đơn
             if (addDetails && addDetails.length > 0) {
                 for (const product of addDetails) {
-                    const detail = await SaleInvoiceDetail.create({
-                        MaChiTietBH: `CTBH${uuidv4().substring(0, 8)}`,
-                        SoPhieuBH: soPhieu,
-                        MaSanPham: product.MaSanPham,
-                        SoLuong: product.SoLuong,
-                        DonGiaBanRa: product.DonGiaBanRa,
-                        ThanhTien: product.ThanhTien,
-                    }, { transaction });
-    
                     const currentProduct = await Product.findOne({
                         where: { MaSanPham: product.MaSanPham },
                         transaction,
@@ -172,7 +178,21 @@ class SaleInvoiceService {
                         throw new Error(`Không tìm thấy sản phẩm có mã ${product.MaSanPham}`);
                     }
     
+                    const productType = await ProductCategory.findOne({
+                        where: { MaLoaiSanPham: currentProduct.MaLoaiSanPham },
+                        transaction,
+                    });
+    
+                    if (!productType) {
+                        throw new Error(`Không tìm thấy loại sản phẩm cho mã ${currentProduct.MaLoaiSanPham}`);
+                    }
+    
+                    const updatedPrice = currentProduct.DonGia * (1 + productType.PhanTramLoiNhuan / 100);
+                    const thanhTien = updatedPrice * product.SoLuong;
+                    tongTien += thanhTien;
+    
                     const updatedQuantity = currentProduct.SoLuong - product.SoLuong;
+    
                     if (updatedQuantity < 0) {
                         throw new Error(
                             `Sản phẩm ${product.MaSanPham} không đủ số lượng tồn kho (hiện tại: ${currentProduct.SoLuong})`
@@ -186,6 +206,15 @@ class SaleInvoiceService {
                             transaction,
                         }
                     );
+    
+                    await SaleInvoiceDetail.create({
+                        MaChiTietBH: `CTBH${uuidv4().substring(0, 8)}`,
+                        SoPhieuBH: soPhieu,
+                        MaSanPham: product.MaSanPham,
+                        SoLuong: product.SoLuong,
+                        DonGiaBanRa: updatedPrice,
+                        ThanhTien: thanhTien,
+                    }, { transaction });
                 }
             }
     
@@ -193,6 +222,7 @@ class SaleInvoiceService {
             if (deleteDetails && deleteDetails.length > 0) {
                 for (const detail of deleteDetails) {
                     const { MaChiTietBH, MaSanPham, SoLuong } = detail;
+    
                     await SaleInvoiceDetail.destroy({
                         where: { MaChiTietBH, SoPhieuBH: soPhieu },
                         transaction,
@@ -216,6 +246,17 @@ class SaleInvoiceService {
                 }
             }
     
+            // Tính lại tổng tiền nếu cần
+            const allDetails = await SaleInvoiceDetail.findAll({
+                where: { SoPhieuBH: soPhieu },
+                transaction,
+            });
+    
+            tongTien += allDetails.reduce((sum, detail) => sum + detail.ThanhTien, 0);
+    
+            // Cập nhật tổng tiền của hóa đơn
+            await saleInvoice.update({ TongTien: tongTien }, { transaction });
+    
             // Commit giao dịch
             await transaction.commit();
             return { message: "Cập nhật hóa đơn bán hàng thành công" };
@@ -224,7 +265,7 @@ class SaleInvoiceService {
             await transaction.rollback();
             throw new Error(`Lỗi khi cập nhật hóa đơn bán hàng: ${error.message}`);
         }
-    }
+    }    
 
     static async deleteSaleInvoice(id) {
         try {
