@@ -1,13 +1,13 @@
 const ProductCategory = require("../models/category.model");
-
+const Unit = require("../models/unit.model");
 class ProductCategoryService {
   // Lấy tất cả danh mục sản phẩm
   async getAllCategories() {
     return await ProductCategory.findAll({
       include: [
         {
-          model: ProductCategory, // Tham chiếu chính model
-          as: "subcategories", // Alias phải trùng với alias trong model
+          model: Unit, // Tham chiếu chính model
+          as: "unit", // Alias phải trùng với alias trong model
         },
       ],
     });
@@ -18,8 +18,8 @@ class ProductCategoryService {
     const category = await ProductCategory.findByPk(MaLoaiSanPham, {
       include: [
         {
-          model: ProductCategory,
-          as: "subcategories",
+          model: Unit,
+          as: "unit",
         },
       ],
     });
@@ -53,13 +53,6 @@ class ProductCategoryService {
     const category = await ProductCategory.findByPk(MaLoaiSanPham);
     if (!category) {
       throw new Error("Không tìm thấy danh mục sản phẩm với mã này.");
-    }
-
-    if (data.ParentID && data.ParentID !== MaLoaiSanPham) {
-      const parentCategory = await ProductCategory.findByPk(data.ParentID);
-      if (!parentCategory) {
-        throw new Error("Danh mục cha không tồn tại.");
-      }
     }
 
     return await category.update(data);

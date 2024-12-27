@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
-
+const Unit = require("./unit.model");
 const ProductCategory = sequelize.define(
   "LOAISANPHAM",
   {
@@ -30,5 +30,10 @@ const ProductCategory = sequelize.define(
     timestamps: true
   }
 );
+
+ProductCategory.belongsTo(Unit, {
+  foreignKey: 'MaDVTinh',
+  as: 'unit'
+});
 
 module.exports = ProductCategory;
