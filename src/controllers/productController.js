@@ -141,6 +141,26 @@ class ProductController {
       res.status(400).json({ error: error.message });
     }
   }
+
+  // Update isDelete field for a product
+  async softDeleteProduct(req, res) {
+    try {
+      const { id } = req.params;
+      const { isDelete } = req.body;
+
+      if (typeof isDelete !== 'boolean') {
+        return res.status(400).json({ error: "isDelete must be a boolean value." });
+      }
+
+      const product = await productService.updateProduct(id, { isDelete });
+      res.status(200).json({
+        message: "Product soft delete status updated successfully.",
+        product,
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = new ProductController();

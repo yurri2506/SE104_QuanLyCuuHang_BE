@@ -10,4 +10,7 @@ router.post('/create', uploadImage.single('imageFile'), productController.create
 router.patch('/update/:id', uploadImage.single('imageFile'), productController.updateProduct);
 router.delete('/delete/:id', productController.deleteProduct);
 
+// Route to update isDelete field
+router.patch('/soft-delete/:id', productController.softDeleteProduct);
+
 module.exports = router;
