@@ -143,24 +143,44 @@ class ProductController {
   }
 
   // Update isDelete field for a product
+  // Soft delete product
   async softDeleteProduct(req, res) {
     try {
       const { id } = req.params;
-      const { isDelete } = req.body;
-
-      if (typeof isDelete !== 'boolean') {
-        return res.status(400).json({ error: "isDelete must be a boolean value." });
+      if (!id) {
+        return res.status(400).json({ 
+          error: "ID sản phẩm không được để trống." 
+        });
       }
 
-      const product = await productService.updateProduct(id, { isDelete });
-      res.status(200).json({
-        message: "Product soft delete status updated successfully.",
-        product,
-      });
+      const result = await productService.softDeleteProduct(id);
+      res.status(200).json(result);
     } catch (error) {
-      res.status(400).json({ error: error.message });
+      console.error('Soft delete controller error:', error);
+      res.status(400).json({ 
+        error: error.message || "Không thể xóa sản phẩm" 
+      });
+    }
+  }
+
+  async restoreProduct(req, res) {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ error: "ID sản phẩm không được để trống." });
+        }
+
+        const result = await productService.restoreProduct(id);
+        res.status(200).json(result);
+        
+    } catch (error) {
+        console.error('Restore controller error:', error);
+        res.status(400).json({ 
+            error: error.message || "Không thể khôi phục sản phẩm"
+        });
     }
   }
 }
 
-module.exports = new ProductController();
+const productController = new ProductController();
+module.exports = productController;

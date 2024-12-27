@@ -97,6 +97,64 @@ class ProductService {
       );
     }
   }
+
+  // Hàm xóa mềm sản phẩm
+  async softDeleteProduct(MaSanPham) {
+    try {
+      // Find the product
+      const product = await Product.findByPk(MaSanPham);
+      if (!product) {
+        throw new Error("Không tìm thấy sản phẩm để xóa.");
+      }
+
+      // Update isDelete flag
+      await product.update({ isDelete: true });
+
+      return {
+        message: "Sản phẩm đã được xóa thành công.",
+        product: {
+          MaSanPham: product.MaSanPham,
+          TenSanPham: product.TenSanPham,
+          isDelete: true
+        }
+      };
+    } catch (error) {
+      console.error('Soft delete error:', error);
+      throw error;
+    }
+  }
+
+  // Hàm khôi phục sản phẩm
+  async restoreProduct(MaSanPham) {
+    try {
+      console.log('Attempting to restore product:', MaSanPham);
+      
+      const product = await Product.findByPk(MaSanPham);
+      if (!product) {
+        throw new Error("Không tìm thấy sản phẩm.");
+      }
+
+      if (!product.isDelete) {
+        throw new Error("Sản phẩm đã đang hoạt động.");
+      }
+
+      await product.update({ isDelete: false });
+                        
+      console.log('Product restored successfully:', product.MaSanPham);
+      
+      return {
+        message: "Sản phẩm đã được khôi phục thành công.",
+        product: {
+          MaSanPham: product.MaSanPham,
+          TenSanPham: product.TenSanPham,
+          isDelete: false
+        }
+      };
+    } catch (error) {
+      console.error('Restore service error:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new ProductService();
