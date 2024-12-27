@@ -4,7 +4,7 @@ const { uploadProductImage } = require('../config/cloudinary');
 
 class ProductService {
   // Lấy tất cả sản phẩm kèm danh mục
-  async getAllProducts() {
+  async   getAllProducts() {
     return await Product.findAll({
       include: [{ association: "category" }], // Bao gồm danh mục
     });
