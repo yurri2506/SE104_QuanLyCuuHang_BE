@@ -41,7 +41,6 @@ const Product = sequelize.define('SANPHAM', {
     timestamps: true
 });
 
-
 // Define relationship
 Product.belongsTo(ProductCategory, {
     foreignKey: 'MaLoaiSanPham',

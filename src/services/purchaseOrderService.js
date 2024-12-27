@@ -45,7 +45,7 @@ class PurchaseService {
           },
           { transaction }
         );
-        
+
         // Truy xuất mã loại sản phẩm
         const currentProduct = await Product.findOne({
           where: { MaSanPham: product.maSanPham },
@@ -69,10 +69,10 @@ class PurchaseService {
         // Tăng số lượng tồn kho = Tồn kho hiện tại + Số lượng mua thêm
         const updatedQuantity = currentProduct.SoLuong + product.soLuong;
 
-        console.log("Số lượng update: ", updatedQuantity)  
+        console.log("Số lượng update: ", updatedQuantity)
 
         await Product.update(
-          { 
+          {
             SoLuong: updatedQuantity,
           },
           {
@@ -120,141 +120,115 @@ class PurchaseService {
   }
 
   static async getPurchaseDetails(soPhieu) {
-    const purchaseDetails = await PurchaseDetail.findAll({
+    const purchaseOrder = await PurchaseOrder.findOne({
       where: { SoPhieu: soPhieu },
       include: [
         {
-          model: Product,
-          attributes: ['MaLoaiSanPham'],
+          model: PurchaseDetail,
+          as: 'ChiTietSanPham',
           include: [
             {
-              model: ProductCategory,
-              attributes: ['TenLoaiSanPham']
+              model: Product,
+              as: 'product', // Ensure this alias matches the one defined in your model associations
+              attributes: ['MaLoaiSanPham'],
+              include: [
+                {
+                  model: ProductCategory,
+                  as: 'category', // Ensure this alias matches the one defined in your model associations
+                  attributes: ['TenLoaiSanPham']
+                }
+              ]
             }
           ]
         }
       ]
     });
 
-    return purchaseDetails.map(detail => ({
+    if (!purchaseOrder) {
+      throw new Error('Purchase order not found');
+    }
+
+    const purchaseDetails = purchaseOrder.ChiTietSanPham.map((detail) => ({
       MaChiTietMH: detail.MaChiTietMH,
       SoPhieu: detail.SoPhieu,
       MaSanPham: detail.MaSanPham,
       SoLuong: detail.SoLuong,
       DonGia: detail.DonGia,
       ThanhTien: detail.ThanhTien,
-      MaLoaiSanPham: detail.Product.MaLoaiSanPham,
-      TenLoaiSanPham: detail.Product.ProductCategory.TenLoaiSanPham
+      TenLoaiSanPham: detail.product?.category?.TenLoaiSanPham // Use optional chaining to handle undefined
     }));
+
+
+    return {
+      purchaseDetails: purchaseDetails, // Use optional chaining to handle undefined
+      purchaseOrder: {
+        SoPhieu: purchaseOrder.SoPhieu,
+        NgayLap: purchaseOrder.NgayLap,
+        MaNCC: purchaseOrder.MaNCC,
+        TongTien: purchaseOrder.TongTien,
+      }
+    };
   }
 
-  // static async updatePurchase(soPhieu, updatedData) {
-  //   const transaction = await PurchaseOrder.sequelize.transaction();
-
-  //   try {
-  //     const { NgayLap, MaNCC, ChiTietSanPham } = updatedData;
-
-  //     // Kiểm tra nếu ChiTietSanPham không phải là mảng
-  //     if (!Array.isArray(ChiTietSanPham)) {
-  //       throw new Error("Dữ liệu ChiTietSanPham phải là một mảng");
-  //     }
-
-  //     // Tìm phiếu mua hàng
-  //     const purchaseOrder = await PurchaseOrder.findByPk(soPhieu);
-  //     if (!purchaseOrder) {
-  //       throw new Error("Phiếu mua hàng không tồn tại");
-  //     }
-
-  //     // Cập nhật phiếu mua hàng
-  //     await purchaseOrder.update(
-  //       {
-  //         NgayLap: NgayLap || purchaseOrder.NgayLap,
-  //         MaNCC: MaNCC || purchaseOrder.MaNCC,
-  //       },
-  //       { transaction }
-  //     );
-
-  //     // Xóa các chi tiết cũ
-  //     await PurchaseDetail.destroy({
-  //       where: { SoPhieu: soPhieu },
-  //       transaction,
-  //     });
-
-  //     // Lưu các chi tiết mới
-  //     const updatedDetails = [];
-  //     for (const product of ChiTietSanPham) {
-  //       const detail = await PurchaseDetail.create(
-  //         {
-  //           MaChiTietMH: `${soPhieu}_${product.MaSanPham}`,
-  //           SoPhieu: soPhieu,
-  //           MaSanPham: product.MaSanPham,
-  //           SoLuong: product.SoLuong,
-  //           DonGia: parseFloat(product.DonGia), // Chuyển đổi DonGia thành số thực
-  //           ThanhTien: parseFloat(product.ThanhTien), // Chuyển đổi ThanhTien thành số thực
-  //         },
-  //         { transaction }
-  //       );
-  //       updatedDetails.push(detail);
-  //     }
-
-  //     await transaction.commit();
-
-  //     // Trả về dữ liệu được cập nhật
-  //     return {
-  //       message: "Cập nhật phiếu mua hàng thành công",
-  //       purchaseOrder: {
-  //         SoPhieu: soPhieu,
-  //         NgayLap: NgayLap || purchaseOrder.NgayLap,
-  //         MaNCC: MaNCC || purchaseOrder.MaNCC,
-  //         ChiTietSanPham: updatedDetails,
-  //       },
-  //     };
-  //   } catch (error) {
-  //     await transaction.rollback();
-  //     throw new Error(`Lỗi khi cập nhật phiếu mua hàng: ${error.message}`);
-  //   }
-  // }
-
-  // Chưa test thử, mới chỉ code
-  static async updatePurchase(soPhieu, { updatedDetails, addDetails, deleteDetails }) {
+  static async updatePurchase(soPhieu, { updateDetails, addDetails, deleteDetails }) {
     const transaction = await PurchaseOrder.sequelize.transaction();
 
     try {
-      // Tìm phiếu mua hàng
+      // Find purchase order
       const purchaseOrder = await PurchaseOrder.findByPk(soPhieu);
       if (!purchaseOrder) {
         throw new Error("Phiếu mua hàng không tồn tại");
       }
 
-      // Kiểm tra ngày tạo phiếu mua hàng
+      // Check date difference
       const currentDate = new Date();
       const orderDate = new Date(purchaseOrder.NgayLap);
       const timeDiff = Math.abs(currentDate - orderDate);
-      const dayDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)); // Chuyển đổi sang số ngày
+      const dayDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
       if (dayDiff > 2) {
         if (addDetails && addDetails.length > 0) {
           throw new Error("Không thể thêm chi tiết sau 2 ngày kể từ ngày tạo phiếu mua hàng.");
         }
-
         if (deleteDetails && deleteDetails.length > 0) {
           throw new Error("Không thể xóa chi tiết sau 2 ngày kể từ ngày tạo phiếu mua hàng.");
         }
       }
 
-      // Cập nhật thông tin phiếu mua hàng
-      if (updatedDetails) {
-        const { NgayLap, MaNCC } = updatedDetails;
+      // Update purchase order information
+      if (updateDetails) {
+        console.log("updateDetails received:", updateDetails);
+        
+        let formattedDate;
+        // Check if updateDetails is an array or object and extract NgayLap accordingly
+        const ngayLap = Array.isArray(updateDetails) ? updateDetails[0]?.NgayLap : updateDetails.NgayLap;
+        
+        if (ngayLap) {
+          formattedDate = new Date(ngayLap);
+          if (isNaN(formattedDate.getTime())) {
+            throw new Error("Invalid date format");
+          }
+        } else {
+          formattedDate = purchaseOrder.NgayLap;
+        }
+
+        console.log("Formatted date:", formattedDate);
+
         await purchaseOrder.update({
-          NgayLap: NgayLap || purchaseOrder.NgayLap,
-          MaNCC: MaNCC || purchaseOrder.MaNCC,
-        }, { transaction });
+          NgayLap: formattedDate,
+          MaNCC: Array.isArray(updateDetails) ? 
+            updateDetails[0]?.MaNCC || purchaseOrder.MaNCC :
+            updateDetails.MaNCC || purchaseOrder.MaNCC
+        }, { 
+          transaction,
+          fields: ['NgayLap', 'MaNCC']
+        });
       }
 
       // Thêm chi tiết phiếu mua hàng mới
       if (addDetails && addDetails.length > 0) {
         for (const product of addDetails) {
-          const detail = await PurchaseDetail.create({
+          await PurchaseDetail.create({
             MaChiTietMH: `${soPhieu}_${product.MaSanPham}`,
             SoPhieu: soPhieu,
             MaSanPham: product.MaSanPham,
@@ -262,32 +236,18 @@ class PurchaseService {
             DonGia: product.DonGia,
             ThanhTien: product.ThanhTien,
           }, { transaction });
+        }
+      }
 
-          const currentProduct = await Product.findOne({
-            where: { MaSanPham: product.MaSanPham },
-            transaction,
-          });
-
-          if (!currentProduct) {
-            throw new Error(`Không tìm thấy sản phẩm có mã ${product.MaSanPham}`);
-          }
-
-          const productType = await ProductCategory.findOne({
-            where: { MaLoaiSanPham: currentProduct.MaLoaiSanPham },
-            transaction,
-          });
-
-          if (!productType) {
-            throw new Error(`Không tìm thấy loại sản phẩm cho mã ${currentProduct.MaLoaiSanPham}`);
-          }
-
-          const updatedQuantity = currentProduct.SoLuong + product.SoLuong;
-
-          await Product.update({
-            SoLuong: updatedQuantity,
-            DonGia: updatedPrice,
+      // Cập nhật chi tiết phiếu mua hàng
+      if (updateDetails && updateDetails.length > 0) {
+        for (const product of updateDetails) {
+          await PurchaseDetail.update({
+            SoLuong: product.SoLuong,
+            DonGia: product.DonGia,
+            ThanhTien: product.ThanhTien,
           }, {
-            where: { MaSanPham: product.MaSanPham },
+            where: { MaChiTietMH: product.MaChiTietMH },
             transaction,
           });
         }
@@ -295,33 +255,28 @@ class PurchaseService {
 
       // Xóa chi tiết phiếu mua hàng
       if (deleteDetails && deleteDetails.length > 0) {
-        for (const detail of deleteDetails) {
-          const { MaChiTietMH, MaSanPham, SoLuong } = detail;
-          await PurchaseDetail.update({
-            SoLuong: 0,
-            DonGia: 0,
-            ThanhTien: 0,
-          }, {
-            where: { MaChiTietMH, SoPhieu: soPhieu },
+        for (const detailId of deleteDetails) {
+          await PurchaseDetail.destroy({
+            where: { MaChiTietMH: detailId },
             transaction,
           });
-
-          const currentProduct = await Product.findOne({
-            where: { MaSanPham: MaSanPham },
-            transaction,
-          });
-
-          if (currentProduct) {
-            const updatedQuantity = currentProduct.SoLuong - SoLuong;
-            await Product.update({
-              SoLuong: updatedQuantity,
-            }, {
-              where: { MaSanPham: MaSanPham },
-              transaction,
-            });
-          }
         }
       }
+
+      // Tính lại tổng tiền
+      const allDetails = await PurchaseDetail.findAll({
+        where: { SoPhieu: soPhieu },
+        transaction,
+      });
+
+      const tongTien = allDetails.reduce((sum, detail) => {
+        const thanhTien = parseFloat(detail.ThanhTien);
+        return sum + (isNaN(thanhTien) ? 0 : thanhTien);
+      }, 0);
+
+      console.log("Tổng tiền: ", tongTien);
+      // Cập nhật tổng tiền của hóa đơn
+      await purchaseOrder.update({ TongTien: tongTien }, { transaction });
 
       await transaction.commit();
       return { message: "Cập nhật phiếu mua hàng thành công" };
