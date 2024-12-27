@@ -55,8 +55,8 @@ class ProductController {
         TenSanPham: req.body.TenSanPham,
         MaLoaiSanPham: req.body.MaLoaiSanPham,
         MaSanPham: req.body.MaSanPham,
-        DonGia: req.body.DonGia || 0,
-        SoLuong: req.body.SoLuong || 0
+        DonGia: null,  // Set to null instead of 0
+        SoLuong: 0     // Keep stock at 0 for "Hết hàng"
       };
 
       // Handle image upload
@@ -77,7 +77,11 @@ class ProductController {
       const newProduct = await productService.createProduct(productData);
       res.status(201).json({
         message: "Sản phẩm đã được tạo thành công.",
-        product: newProduct
+        product: {
+          ...newProduct,
+          price: "Chưa có giá",
+          stockDisplay: "Hết hàng"
+        }
       });
     } catch (error) {
       console.error('Create product error:', error);
