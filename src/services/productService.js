@@ -7,6 +7,7 @@ class ProductService {
   async getAllProducts() {
     return await Product.findAll({
       include: [{ association: "category" }], // Bao gồm danh mục
+      order: [['createdAt', 'DESC']] // Sắp xếp theo ngày tạo
     });
   }
 
