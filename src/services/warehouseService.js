@@ -1,53 +1,97 @@
-// services/warehouseManageService.js
 const WarehouseManage = require('../models/warehouse.model');
+const PurchaseDetail = require('../models/purchaseOrderDetails.model');
+const SaleInvoiceDetail = require('../models/saleInvoiceDetail.model');
 const Product = require('../models/product.model');
-const Category = require('../models/category.model');
-const Unit = require('../models/unit.model');
+const ProductCategory = require('../models/category.model');
+const { Op } = require('sequelize');
 
-const getAllReports = async () => {
-  return await WarehouseManage.findAll();
-};
+class WarehouseManageService {
+    // Lấy tất cả báo cáo tồn kho
+    static async getAllReports() {
+        return await WarehouseManage.findAll();
+    }
 
-const getReportByMonthAndProduct = async (thang, maSanPham) => {
-  return await WarehouseManage.findOne({ where: { Thang: thang, MaSanPham: maSanPham } });
-};
+    // Tính toán và tạo báo cáo tồn kho
+    static async generateReport(year, month) {
+        const period = `${year}-${String(month).padStart(2, '0')}`; // Kết hợp năm và tháng
 
-const createReport = async (data) => {
-  const product = await Product.findOne({ where: { MaSanPham: data.MaSanPham } });
-  if (!product) throw new Error('Product not found');
+        // Lấy danh sách sản phẩm
+        const products = await PurchaseDetail.findAll({
+            attributes: ['MaSanPham', 'TenSanPham'],
+            group: ['MaSanPham'],
+        });
 
-  const Category = await Category.findOne({ where: { MaLoaiSanPham: product.MaLoaiSanPham } });
-  if (!Category) throw new Error('Category not found');
+        const reports = [];
 
-  const unit = await Unit.findOne({ where: { MaDonViTinh: Category.MaDonViTinh } });
-  if (!unit) throw new Error('Unit not found');
+        for (const product of products) {
+            // Lấy mã loại sản phẩm và đơn vị tính từ bảng Product và ProductCategory
+            const productInfo = await Product.findOne({
+                where: { MaSanPham: product.MaSanPham },
+                include: [{
+                    model: ProductCategory,
+                    as: 'category',
+                    attributes: ['DonViTinh']
+                }]
+            });
 
-  data.DonViTinh = unit.TenDonViTinh;
-  return await WarehouseManage.create(data);
-};
+            const donViTinh = productInfo?.category?.DonViTinh || 'Chưa xác định';
 
-const updateReport = async (thang, maSanPham, data) => {
-  const product = await Product.findOne({ where: { MaSanPham: data.MaSanPham } });
-  if (!product) throw new Error('Product not found');
+            // Kiểm tra xem báo cáo đã tồn tại chưa
+            const existingReport = await WarehouseManage.findOne({
+                where: { Thang: period, MaSanPham: product.MaSanPham },
+            });
 
-  const Category = await Category.findOne({ where: { MaLoaiSanPham: product.MaLoaiSanPham } });
-  if (!Category) throw new Error('Category not found');
+            if (existingReport) {
+                reports.push(existingReport);
+                continue;
+            }
 
-  const unit = await Unit.findOne({ where: { MaDonViTinh: Category.MaDonViTinh } });
-  if (!unit) throw new Error('Unit not found');
+            // Tính toán tồn kho
+            const previousPeriod = WarehouseManageService.getPreviousMonth(year, month);
+            const previousReport = await WarehouseManage.findOne({
+                where: { Thang: previousPeriod, MaSanPham: product.MaSanPham },
+            });
 
-  data.DonViTinh = unit.TenDonViTinh;
-  return await WarehouseManage.update(data, { where: { Thang: thang, MaSanPham: maSanPham } });
-};
+            const tonDau = previousReport ? previousReport.TonCuoi : 0;
 
-const deleteReport = async (thang, maSanPham) => {
-  return await WarehouseManage.destroy({ where: { Thang: thang, MaSanPham: maSanPham } });
-};
+            const muaVao = await PurchaseDetail.sum('SoLuong', {
+                where: { MaSanPham: product.MaSanPham, NgayLap: { [Op.startsWith]: period } },
+            });
 
-module.exports = {
-  getAllReports,
-  getReportByMonthAndProduct,
-  createReport,
-  updateReport,
-  deleteReport,
-};
+            const banRa = await SaleInvoiceDetail.sum('SoLuong', {
+                where: { MaSanPham: product.MaSanPham, NgayLap: { [Op.startsWith]: period } },
+            });
+
+            const tonCuoi = tonDau + (muaVao || 0) - (banRa || 0);
+
+            // Tạo báo cáo mới
+            const report = await WarehouseManage.create({
+                Thang: period,
+                MaSanPham: product.MaSanPham,
+                TenSanPham: product.TenSanPham,
+                TonDau: tonDau,
+                SoLuongMuaVao: muaVao || 0,
+                SoLuongBanRa: banRa || 0,
+                TonCuoi: tonCuoi,
+                DonViTinh: donViTinh,
+            });
+
+            reports.push(report);
+        }
+
+        return reports;
+    }
+
+    // Hàm hỗ trợ lấy tháng trước
+    static getPreviousMonth(year, month) {
+        let prevMonth = month - 1;
+        let prevYear = year;
+        if (prevMonth === 0) {
+            prevMonth = 12;
+            prevYear -= 1;
+        }
+        return `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    }
+}
+
+module.exports = WarehouseManageService;
