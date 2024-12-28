@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
+const Customer = require('./customer.model');
 
 const ServiceTicket = sequelize.define('PHIEUDICHVU', {
     SoPhieuDV: {
@@ -33,6 +34,12 @@ const ServiceTicket = sequelize.define('PHIEUDICHVU', {
 }, {
     tableName: 'PHIEUDICHVU',
     timestamps: true
+});
+
+// Add this association
+ServiceTicket.belongsTo(Customer, {
+    foreignKey: 'MaKhachHang',
+    as: 'customer'
 });
 
 module.exports = ServiceTicket;

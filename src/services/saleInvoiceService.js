@@ -134,6 +134,9 @@ class SaleInvoiceService {
     }
 
     static async updateSaleInvoice(soPhieu, { updateDetails, addDetails, deleteDetails }) {
+        console.log('updateDetails:', updateDetails);
+        console.log('addDetails:', addDetails);
+        console.log('deleteDetails:', deleteDetails);
         const transaction = await SaleInvoice.sequelize.transaction();
 
         try {
@@ -219,8 +222,8 @@ class SaleInvoiceService {
                 transaction
             });
 
-            const total = details.reduce((sum, detail) => sum + detail.ThanhTien, 0);
-            await saleInvoice.update({ TongTien: total }, { transaction });
+            const total = details.reduce((sum, detail) => sum + Number(detail.ThanhTien), 0);
+            await saleInvoice.update({ TongTien: parseFloat(total).toFixed(2)  }, { transaction });
 
             await transaction.commit();
             return { message: "Cập nhật thành công" };
