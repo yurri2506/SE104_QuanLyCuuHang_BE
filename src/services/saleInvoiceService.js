@@ -1,7 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
+const { sequelize } = require('../config/database');
 const SaleInvoice = require('../models/saleInvoice.model');
 const SaleInvoiceDetail = require('../models/saleInvoiceDetail.model');
 const Product = require('../models/product.model');
+const Customer = require('../models/customer.model');
 const ProductCategory = require('../models/category.model');
 
 class SaleInvoiceService {
@@ -132,97 +134,100 @@ class SaleInvoiceService {
             }]
         });
     }
-    static async updateSaleInvoice(soPhieu, { updateDetails, addDetails, deleteDetails }) {
-        console.log('updateDetails:', updateDetails);
-        console.log('addDetails:', addDetails);
-        console.log('deleteDetails:', deleteDetails);
-    static async updateSaleInvoice(soPhieu, data) {
-        const transaction = await SaleInvoice.sequelize.transaction();
 
+    static async updateSaleInvoice(soPhieu, data) {
+        const transaction = await sequelize.transaction();
         try {
-            const saleInvoice = await SaleInvoice.findByPk(soPhieu);
-            if (!saleInvoice) {
-                throw new Error("Hóa đơn bán hàng không tồn tại");
+            const invoice = await SaleInvoice.findByPk(soPhieu);
+            if (!invoice) {
+                throw new Error('Không tìm thấy hóa đơn bán hàng');
             }
 
-            // Update invoice info
-            if (data.updateDetails) {
-                const { NgayLap, MaKhachHang, TongTien } = data.updateDetails;
-                await saleInvoice.update({
-                    NgayLap: new Date(NgayLap),
-                    MaKhachHang,
-                    TongTien: parseFloat(TongTien)
+            // Handle basic invoice updates if updateDetails exists
+            if (data.updateDetails && data.updateDetails.length > 0) {
+                const updateData = data.updateDetails[0];
+                await invoice.update({
+                    NgayLap: updateData.NgayLap,
+                    MaKhachHang: updateData.MaKH
                 }, { transaction });
             }
 
-            // Handle deletions
-            if (data.deleteDetails?.length > 0) {
+            // Handle deleting products (return to inventory)
+            if (data.deleteDetails && data.deleteDetails.length > 0) {
                 for (const detail of data.deleteDetails) {
+                    // Find the product
+                    const product = await Product.findByPk(detail.MaSanPham, { transaction });
+                    if (!product) {
+                        throw new Error(`Không tìm thấy sản phẩm ${detail.MaSanPham}`);
+                    }
+
+                    // Return quantity to inventory
+                    await product.update({
+                        SoLuong: product.SoLuong + detail.SoLuong
+                    }, { transaction });
+
+                    // Delete the sale detail
                     await SaleInvoiceDetail.destroy({
-                        where: { 
+                        where: {
                             MaChiTietBH: detail.MaChiTietBH,
-                            SoPhieuBH: soPhieu 
+                            SoPhieuBH: soPhieu
                         },
                         transaction
                     });
-
-                    const product = await Product.findByPk(detail.MaSanPham, { transaction });
-                    if (product) {
-                        await product.update({
-                            SoLuong: product.SoLuong + parseInt(detail.SoLuong)
-                        }, { transaction });
-                    }
                 }
             }
 
-            // Handle additions
-            if (data.addDetails?.length > 0) {
+            // Handle adding new products
+            if (data.addDetails && data.addDetails.length > 0) {
                 for (const detail of data.addDetails) {
-                    const product = await Product.findByPk(detail.MaSanPham, {
-                        include: [{
-                            model: ProductCategory,
-                            as: 'category'
-                        }],
-                        transaction
-                    });
-
+                    // Check product availability
+                    const product = await Product.findByPk(detail.MaSanPham, { transaction });
                     if (!product) {
                         throw new Error(`Không tìm thấy sản phẩm ${detail.MaSanPham}`);
                     }
 
                     if (product.SoLuong < detail.SoLuong) {
-                        throw new Error(`Sản phẩm ${product.TenSanPham} không đủ số lượng`);
+                        throw new Error(`Sản phẩm ${detail.MaSanPham} không đủ số lượng trong kho`);
                     }
 
+                    // Reduce inventory
+                    await product.update({
+                        SoLuong: product.SoLuong - detail.SoLuong
+                    }, { transaction });
+
+                    // Create new sale detail
                     await SaleInvoiceDetail.create({
                         MaChiTietBH: `${soPhieu}_${detail.MaSanPham}`,
                         SoPhieuBH: soPhieu,
                         MaSanPham: detail.MaSanPham,
-                        SoLuong: parseInt(detail.SoLuong),
-                        DonGiaBanRa: parseFloat(detail.DonGiaBanRa),
-                        ThanhTien: parseFloat(detail.ThanhTien)
-                    }, { transaction });
-
-                    await product.update({
-                        SoLuong: product.SoLuong - parseInt(detail.SoLuong)
+                        SoLuong: detail.SoLuong,
+                        DonGiaBanRa: detail.DonGiaBanRa,
+                        ThanhTien: detail.ThanhTien
                     }, { transaction });
                 }
             }
 
-            // Recalculate total
-            const details = await SaleInvoiceDetail.findAll({
+            // Recalculate total amount
+            const allDetails = await SaleInvoiceDetail.findAll({
                 where: { SoPhieuBH: soPhieu },
                 transaction
             });
 
-            const total = details.reduce((sum, detail) => sum + Number(detail.ThanhTien), 0);
-            await saleInvoice.update({ TongTien: parseFloat(total).toFixed(2)  }, { transaction });
-            await transaction.commit();
-            return { message: "Cập nhật thành công" };
+            const newTotal = allDetails.reduce((sum, detail) => sum + Number(detail.ThanhTien), 0);
+            await invoice.update({ TongTien: newTotal }, { transaction });
 
+            await transaction.commit();
+
+            // Return updated invoice with details
+            return await SaleInvoice.findByPk(soPhieu, {
+                include: [
+                    { model: SaleInvoiceDetail, as: 'details' },
+                    { model: Customer, as: 'customer' }
+                ]
+            });
         } catch (error) {
             await transaction.rollback();
-            throw new Error(`Lỗi cập nhật: ${error.message}`);
+            throw new Error(`Lỗi khi cập nhật hóa đơn: ${error.message}`);
         }
     }
 
