@@ -1,10 +1,12 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
+const Customer = require('./customer.model');
 
 const ServiceTicket = sequelize.define('PHIEUDICHVU', {
     SoPhieuDV: {
         type: DataTypes.STRING(50),
-        primaryKey: true
+        primaryKey: true,
+        allowNull: false
     },
     NgayLap: {
         type: DataTypes.DATE,
@@ -25,14 +27,20 @@ const ServiceTicket = sequelize.define('PHIEUDICHVU', {
     TinhTrang: {
         type: DataTypes.STRING(50),
         allowNull: false,
-        defaultValue: 'Chưa giao',
+        defaultValue: 'Chưa hoàn thành',
         validate: {
-            isIn: [['Đã giao', 'Chưa giao']]
+            isIn: [['Chưa hoàn thành', 'Hoàn thành']]
         }
     }
 }, {
     tableName: 'PHIEUDICHVU',
     timestamps: true
+});
+
+// Add Customer association
+ServiceTicket.belongsTo(Customer, {
+    foreignKey: 'MaKhachHang',
+    as: 'customer'
 });
 
 module.exports = ServiceTicket;
