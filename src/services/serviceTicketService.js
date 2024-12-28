@@ -3,6 +3,13 @@ const ServiceTicket = require("../models/serviceTicket.model");
 const ServiceTicketDetail = require("../models/serviceTicketDetail.model");
 const ServiceType = require("../models/serviceType.model");
 const Customer = require("../models/customer.model");  // Add this line
+const Customer = require("../models/customer.model");
+
+// Add helper function for date formatting
+const formatDate = (date) => {
+  if (!date) return null;
+  return new Date(date).toISOString().split('T')[0];
+};
 
 class ServiceTicketService {
   static async createServiceTicket(ticketData, details) {
@@ -24,38 +31,57 @@ class ServiceTicketService {
         TongTienTraTruoc: ticketData.TongTienTraTruoc,
         TinhTrang: ticketData.TinhTrang || "Chưa giao",
       });
+        // Validate ticket status
+        if (ticketData.TinhTrang && 
+            !["Chưa hoàn thành", "Hoàn thành"].includes(ticketData.TinhTrang)) {
+            throw new Error('Tình trạng chỉ có thể là "Chưa hoàn thành" hoặc "Hoàn thành"');
+        }
 
-      // Create details with validation
-      if (details && details.length > 0) {
-        const detailsWithIds = [];
-        for (const detail of details) {
-          // Retrieve service type
-          const serviceType = await ServiceType.findOne({
-            where: { MaLoaiDichVu: detail.MaLoaiDichVu },
-          });
+        // Check if the service ticket already exists
+        const existingTicket = await ServiceTicket.findOne({
+          where: { SoPhieuDV: ticketData.SoPhieuDV }
+        });
+        if (existingTicket) {
+          throw new Error(`Phiếu dịch vụ với số "${ticketData.SoPhieuDV}" đã tồn tại`);
+        }
 
-          if (!serviceType) {
-            throw new Error(
-              `Không tìm thấy loại dịch vụ có mã ${detail.MaLoaiDichVu}`
-            );
-          }
+        // Create the service ticket
+        const ticket = await ServiceTicket.create({
+            SoPhieuDV: ticketData.SoPhieuDV,
+            NgayLap: ticketData.NgayLap,
+            MaKhachHang: ticketData.MaKhachHang,
+            TongTien: ticketData.TongTien,
+            TongTienTraTruoc: ticketData.TongTienTraTruoc,
+            TinhTrang: ticketData.TinhTrang || "Chưa hoàn thành",
+        });
 
-          // Calculate final price including special costs
-          const finalPrice = detail.DonGiaDuocTinh + (detail.ChiPhiRieng || 0);
+        // Create details with validation
+        const detailsWithIds = []; // Initialize array outside the if block
+        
+        if (details && details.length > 0) {
+            for (const detail of details) {
+                // Generate a unique ID for each detail
+                const detailId = `CTDV${uuidv4().substring(0, 8)}`;
 
-          // Calculate total amount
-          const thanhTien = detail.SoLuong * finalPrice;
+                // Use MaLoaiDV instead of MaLoaiDichVu
+                const serviceType = await ServiceType.findOne({
+                    where: { MaLoaiDV: detail.MaLoaiDV }
+                });
 
-          // Validate minimum prepayment based on service type percentage
-          const minPrepayment =
-            thanhTien * (serviceType.PhanTramTraTruoc / 100);
-          const traTruoc = detail.TraTruoc || 0; // Default to 0 if not provided
-          if (traTruoc < minPrepayment) {
-            throw new Error(
-              `Số tiền trả trước phải >= ${serviceType.PhanTramTraTruoc}% thành tiền (${minPrepayment})`
-            );
-          }
+                if (!serviceType) {
+                    throw new Error(`Không tìm thấy loại dịch vụ có mã ${detail.MaLoaiDV}`);
+                }
 
+                // Calculate final price including special costs
+                const finalPrice = detail.DonGiaDuocTinh + (detail.ChiPhiRieng || 0);
+                const thanhTien = detail.SoLuong * finalPrice;
+                const traTruoc = detail.TraTruoc || 0;
+
+                // Validate minimum prepayment
+                const minPrepayment = thanhTien * (serviceType.PhanTramTraTruoc / 100);
+                if (traTruoc < minPrepayment) {
+                    throw new Error(`Số tiền trả trước phải >= ${serviceType.PhanTramTraTruoc}% thành tiền (${minPrepayment})`);
+                }
           detailsWithIds.push({
             MaChiTietDV:
               detail.MaChiTietDV || `CTDV${uuidv4().substring(0, 8)}`,
@@ -71,36 +97,68 @@ class ServiceTicketService {
             ChiPhiRieng: detail.ChiPhiRieng || 0,
           });
         }
+                // Create detail record
+                const detailRecord = {
+                    MaChiTietDV: detailId,
+                    SoPhieuDV: ticket.SoPhieuDV,
+                    MaLoaiDV: detail.MaLoaiDV,
+                    SoLuong: detail.SoLuong,
+                    DonGiaDuocTinh: finalPrice,
+                    ThanhTien: thanhTien,
+                    TraTruoc: traTruoc,
+                    ConLai: thanhTien - traTruoc,
+                    NgayGiao: detail.NgayGiao || null,
+                    TinhTrang: detail.TinhTrang || "Chưa giao",
+                    ChiPhiRieng: detail.ChiPhiRieng || 0
+                };
 
-        await ServiceTicketDetail.bulkCreate(detailsWithIds);
+                detailsWithIds.push(detailRecord); // Push the record into the array
+            }
 
-        // Recalculate total with special costs
-        const totalWithAllCosts = detailsWithIds.reduce(
-          (sum, detail) => sum + detail.ThanhTien,
-          0
-        );
+            // Create all details in bulk
+            await ServiceTicketDetail.bulkCreate(detailsWithIds, {
+                validate: true
+            });
 
-        // Update ticket with final total
-        await ticket.update({ TongTien: totalWithAllCosts });
-      }
+            // Update total amount
+            const totalWithAllCosts = detailsWithIds.reduce(
+                (sum, detail) => sum + detail.ThanhTien,
+                0
+            );
+            await ticket.update({ TongTien: totalWithAllCosts });
+        }
 
-      // Return complete ticket with details
-      return await ServiceTicket.findByPk(ticket.SoPhieuDV, {
-        include: [{ model: ServiceTicketDetail, as: "details" }],
-      });
+        return {
+            message: "Tạo phiếu dịch vụ thành công",
+            ticket: {
+                ...ticket.get({ plain: true }),
+                details: detailsWithIds
+            }
+        };
+
     } catch (error) {
-      throw new Error(`Lỗi tạo phiếu dịch vụ: ${error.message}`);
+        console.error('Service Ticket Creation Error:', error);
+        throw new Error(`Lỗi tạo phiếu dịch vụ: ${error.message}`);
     }
-  }
+}
 
   static async getAllServiceTickets() {
     try {
-      return await ServiceTicket.findAll({
+      const tickets = await ServiceTicket.findAll({
         include: [
           { model: ServiceTicketDetail, as: "details" },
           { model: Customer, as: "customer" },
         ],
       });
+
+      return tickets.map(ticket => ({
+        ...ticket.get({ plain: true }),
+        NgayLap: formatDate(ticket.NgayLap),
+        details: ticket.details.map(detail => ({
+          ...detail,
+          NgayGiao: formatDate(detail.NgayGiao)
+        }))
+      }));
     } catch (error) {
       throw new Error(`Lỗi khi lấy danh sách phiếu dịch vụ: ${error.message}`);
     }
@@ -150,19 +208,18 @@ class ServiceTicketService {
 
       return {
         serviceTicket: {
-          SoPhieuDV: serviceTicket.SoPhieuDV,
-          NgayLap: serviceTicket.NgayLap,
-          MaKhachHang: serviceTicket.MaKhachHang,
-          TongTien: serviceTicket.TongTien,
-          TongTienTraTruoc: serviceTicket.TongTienTraTruoc,
-          TinhTrang: serviceTicket.TinhTrang,
-          customer: {
-            TenKhachHang: serviceTicket.customer?.TenKhachHang,
-            SoDT: serviceTicket.customer?.SoDT,
-            DiaChi: serviceTicket.customer?.DiaChi,
-          },
+          ...serviceTicket.get({ plain: true }),
+          NgayLap: formatDate(serviceTicket.NgayLap),
+          customer: serviceTicket.customer ? {
+            TenKhachHang: serviceTicket.customer.TenKhachHang,
+            SoDT: serviceTicket.customer.SoDT,
+            DiaChi: serviceTicket.customer.DiaChi,
+          } : null,
         },
-        serviceDetails: serviceDetails,
+        serviceDetails: serviceDetails.map(detail => ({
+          ...detail,
+          NgayGiao: formatDate(detail.NgayGiao)
+        })),
       };
     } catch (error) {
       throw new Error(`Lỗi khi lấy phiếu dịch vụ: ${error.message}`);
@@ -173,87 +230,87 @@ class ServiceTicketService {
     const transaction = await ServiceTicket.sequelize.transaction();
 
     try {
-        // Tìm phiếu dịch vụ
-        const ticket = await ServiceTicket.findByPk(id, { transaction });
-        if (!ticket) throw new Error("Không tìm thấy phiếu dịch vụ");
+      // Tìm phiếu dịch vụ
+      const ticket = await ServiceTicket.findByPk(id, { transaction });
+      if (!ticket) throw new Error("Không tìm thấy phiếu dịch vụ");
 
-        // Kiểm tra ngày tạo phiếu
-        const currentDate = new Date();
-        const ticketDate = new Date(ticket.NgayLap);
-        const timeDiff = Math.abs(currentDate - ticketDate);
-        const dayDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+      // Kiểm tra ngày tạo phiếu
+      const currentDate = new Date();
+      const ticketDate = new Date(ticket.NgayLap);
+      const timeDiff = Math.abs(currentDate - ticketDate);
+      const dayDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        if (dayDiff > 7) {
-            throw new Error("Không thể sửa phiếu dịch vụ sau 7 ngày kể từ ngày tạo.");
-        }
+      if (dayDiff > 7) {
+        throw new Error("Không thể sửa phiếu dịch vụ sau 7 ngày kể từ ngày tạo.");
+      }
 
-        // Cập nhật thông tin phiếu nếu được phép
-        await ticket.update(ticketData, { transaction });
+      // Cập nhật thông tin phiếu nếu được phép
+      await ticket.update(ticketData, { transaction });
 
-        let totalAmount = 0; // Tổng tiền mới
+      let totalAmount = 0; // Tổng tiền mới
 
-        // Cập nhật chi tiết phiếu dịch vụ nếu có
-        if (details && details.length > 0) {
-            for (const detail of details) {
-                const serviceDetail = await ServiceTicketDetail.findByPk(detail.MaChiTietDV, { transaction });
+      // Cập nhật chi tiết phiếu dịch vụ nếu có
+      if (details && details.length > 0) {
+        for (const detail of details) {
+          const serviceDetail = await ServiceTicketDetail.findByPk(detail.MaChiTietDV, { transaction });
 
-                if (!serviceDetail) {
-                    throw new Error(`Không tìm thấy chi tiết phiếu dịch vụ với mã ${detail.MaChiTietDV}`);
-                }
+          if (!serviceDetail) {
+            throw new Error(`Không tìm thấy chi tiết phiếu dịch vụ với mã ${detail.MaChiTietDV}`);
+          }
 
-                // Kiểm tra nếu mã loại dịch vụ bị thay đổi
-                if (detail.MaLoaiDichVu !== serviceDetail.MaLoaiDichVu) {
-                    // Lấy thông tin loại dịch vụ mới
-                    const serviceType = await ServiceType.findOne({
-                        where: { MaLoaiDichVu: detail.MaLoaiDichVu },
-                        transaction
-                    });
-                    if (!serviceType) {
-                        throw new Error(`Không tìm thấy loại dịch vụ có mã ${detail.MaLoaiDichVu}`);
-                    }
-
-                    // Tính toán lại giá trị liên quan
-                    const finalPrice = detail.DonGiaDuocTinh + (detail.ChiPhiRieng || 0);
-                    const thanhTien = detail.SoLuong * finalPrice;
-                    const minPrepayment = thanhTien * (serviceType.PhanTramTraTruoc / 100);
-
-                    if (detail.TraTruoc < minPrepayment) {
-                        throw new Error(`Số tiền trả trước phải >= ${serviceType.PhanTramTraTruoc}% của thành tiền (${minPrepayment})`);
-                    }
-
-                    await serviceDetail.update({
-                        MaLoaiDichVu: detail.MaLoaiDichVu,
-                        SoLuong: detail.SoLuong,
-                        DonGiaDuocTinh: finalPrice,
-                        ThanhTien: thanhTien,
-                        TraTruoc: detail.TraTruoc,
-                        ConLai: thanhTien - detail.TraTruoc,
-                        ChiPhiRieng: detail.ChiPhiRieng || 0,
-                        TinhTrang: detail.TinhTrang || 'Chưa giao',
-                        NgayGiao: detail.NgayGiao || null
-                    }, { transaction });
-
-                    totalAmount += thanhTien;
-                } else {
-                    // Nếu không thay đổi mã loại dịch vụ, chỉ cập nhật các giá trị đơn giản
-                    await serviceDetail.update(detail, { transaction });
-                    totalAmount += serviceDetail.ThanhTien;
-                }
+          // Kiểm tra nếu mã loại dịch vụ bị thay đổi
+          if (detail.MaLoaiDichVu !== serviceDetail.MaLoaiDichVu) {
+            // Lấy thông tin loại dịch vụ mới
+            const serviceType = await ServiceType.findOne({
+              where: { MaLoaiDichVu: detail.MaLoaiDichVu },
+              transaction
+            });
+            if (!serviceType) {
+              throw new Error(`Không tìm thấy loại dịch vụ có mã ${detail.MaLoaiDichVu}`);
             }
+
+            // Tính toán lại giá trị liên quan
+            const finalPrice = detail.DonGiaDuocTinh + (detail.ChiPhiRieng || 0);
+            const thanhTien = detail.SoLuong * finalPrice;
+            const minPrepayment = thanhTien * (serviceType.PhanTramTraTruoc / 100);
+
+            if (detail.TraTruoc < minPrepayment) {
+              throw new Error(`Số tiền trả trước phải >= ${serviceType.PhanTramTraTruoc}% của thành tiền (${minPrepayment})`);
+            }
+
+            await serviceDetail.update({
+              MaLoaiDichVu: detail.MaLoaiDichVu,
+              SoLuong: detail.SoLuong,
+              DonGiaDuocTinh: finalPrice,
+              ThanhTien: thanhTien,
+              TraTruoc: detail.TraTruoc,
+              ConLai: thanhTien - detail.TraTruoc,
+              ChiPhiRieng: detail.ChiPhiRieng || 0,
+              TinhTrang: detail.TinhTrang || 'Chưa giao',
+              NgayGiao: detail.NgayGiao || null
+            }, { transaction });
+
+            totalAmount += thanhTien;
+          } else {
+            // Nếu không thay đổi mã loại dịch vụ, chỉ cập nhật các giá trị đơn giản
+            await serviceDetail.update(detail, { transaction });
+            totalAmount += serviceDetail.ThanhTien;
+          }
         }
+      }
 
-        // Cập nhật tổng tiền mới cho phiếu dịch vụ
-        await ticket.update({ TongTien: totalAmount }, { transaction });
+      // Cập nhật tổng tiền mới cho phiếu dịch vụ
+      await ticket.update({ TongTien: totalAmount }, { transaction });
 
-        // Commit giao dịch
-        await transaction.commit();
-        return { message: "Cập nhật phiếu dịch vụ thành công" };
+      // Commit giao dịch
+      await transaction.commit();
+      return { message: "Cập nhật phiếu dịch vụ thành công" };
     } catch (error) {
-        // Rollback giao dịch nếu có lỗi
-        await transaction.rollback();
-        throw new Error(`Lỗi khi cập nhật phiếu dịch vụ: ${error.message}`);
+      // Rollback giao dịch nếu có lỗi
+      await transaction.rollback();
+      throw new Error(`Lỗi khi cập nhật phiếu dịch vụ: ${error.message}`);
     }
-}
+  }
 
   static async deleteServiceTicket(id) {
     try {

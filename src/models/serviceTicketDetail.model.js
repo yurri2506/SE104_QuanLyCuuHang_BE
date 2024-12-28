@@ -12,7 +12,7 @@ const ServiceTicketDetail = sequelize.define('CHITIETDICHVU', {
         type: DataTypes.STRING(50),
         allowNull: false
     },
-    MaLoaiDichVu: {
+    MaLoaiDV: {
         type: DataTypes.STRING(50),
         allowNull: false
     },
@@ -62,12 +62,14 @@ ServiceTicket.hasMany(ServiceTicketDetail, {
 });
 
 ServiceTicketDetail.belongsTo(ServiceType, {
-    foreignKey: 'MaLoaiDichVu',
+    foreignKey: 'MaLoaiDV',
+    targetKey: 'MaLoaiDV',
     as: 'serviceType'
 });
 
 ServiceType.hasMany(ServiceTicketDetail, {
-    foreignKey: 'MaLoaiDichVu',
+    foreignKey: 'MaLoaiDV',
+    sourceKey: 'MaLoaiDV',
     as: 'serviceDetails'
 });
 

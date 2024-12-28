@@ -132,11 +132,11 @@ class SaleInvoiceService {
             }]
         });
     }
-
     static async updateSaleInvoice(soPhieu, { updateDetails, addDetails, deleteDetails }) {
         console.log('updateDetails:', updateDetails);
         console.log('addDetails:', addDetails);
         console.log('deleteDetails:', deleteDetails);
+    static async updateSaleInvoice(soPhieu, data) {
         const transaction = await SaleInvoice.sequelize.transaction();
 
         try {
@@ -145,18 +145,19 @@ class SaleInvoiceService {
                 throw new Error("Hóa đơn bán hàng không tồn tại");
             }
 
-            // Update invoice info if provided
-            if (updateDetails && updateDetails.length > 0) {
-                const { NgayLap, MaKH } = updateDetails[0];
+            // Update invoice info
+            if (data.updateDetails) {
+                const { NgayLap, MaKhachHang, TongTien } = data.updateDetails;
                 await saleInvoice.update({
-                    NgayLap,
-                    MaKhachHang: MaKH
+                    NgayLap: new Date(NgayLap),
+                    MaKhachHang,
+                    TongTien: parseFloat(TongTien)
                 }, { transaction });
             }
 
-            // Handle deleted items
-            if (deleteDetails?.length > 0) {
-                for (const detail of deleteDetails) {
+            // Handle deletions
+            if (data.deleteDetails?.length > 0) {
+                for (const detail of data.deleteDetails) {
                     await SaleInvoiceDetail.destroy({
                         where: { 
                             MaChiTietBH: detail.MaChiTietBH,
@@ -165,19 +166,18 @@ class SaleInvoiceService {
                         transaction
                     });
 
-                    // Return stock
                     const product = await Product.findByPk(detail.MaSanPham, { transaction });
                     if (product) {
                         await product.update({
-                            SoLuong: product.SoLuong + detail.SoLuong
+                            SoLuong: product.SoLuong + parseInt(detail.SoLuong)
                         }, { transaction });
                     }
                 }
             }
 
-            // Handle added items
-            if (addDetails?.length > 0) {
-                for (const detail of addDetails) {
+            // Handle additions
+            if (data.addDetails?.length > 0) {
+                for (const detail of data.addDetails) {
                     const product = await Product.findByPk(detail.MaSanPham, {
                         include: [{
                             model: ProductCategory,
@@ -190,28 +190,21 @@ class SaleInvoiceService {
                         throw new Error(`Không tìm thấy sản phẩm ${detail.MaSanPham}`);
                     }
 
-                    // Check stock
                     if (product.SoLuong < detail.SoLuong) {
                         throw new Error(`Sản phẩm ${product.TenSanPham} không đủ số lượng`);
                     }
 
-                    // Calculate selling price
-                    const sellingPrice = product.DonGia * (1 + (product.category.PhanTramLoiNhuan / 100));
-
-                    // Create detail record
                     await SaleInvoiceDetail.create({
                         MaChiTietBH: `${soPhieu}_${detail.MaSanPham}`,
                         SoPhieuBH: soPhieu,
                         MaSanPham: detail.MaSanPham,
-                        SoLuong: detail.SoLuong,
-                        DonGiaBanRa: sellingPrice,
-                        ThanhTien: sellingPrice * detail.SoLuong,
-                        HinhAnh: detail.HinhAnh
+                        SoLuong: parseInt(detail.SoLuong),
+                        DonGiaBanRa: parseFloat(detail.DonGiaBanRa),
+                        ThanhTien: parseFloat(detail.ThanhTien)
                     }, { transaction });
 
-                    // Update stock
                     await product.update({
-                        SoLuong: product.SoLuong - detail.SoLuong
+                        SoLuong: product.SoLuong - parseInt(detail.SoLuong)
                     }, { transaction });
                 }
             }
@@ -224,7 +217,6 @@ class SaleInvoiceService {
 
             const total = details.reduce((sum, detail) => sum + Number(detail.ThanhTien), 0);
             await saleInvoice.update({ TongTien: parseFloat(total).toFixed(2)  }, { transaction });
-
             await transaction.commit();
             return { message: "Cập nhật thành công" };
 
