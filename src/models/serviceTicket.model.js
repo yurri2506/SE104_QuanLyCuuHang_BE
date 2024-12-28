@@ -36,8 +36,6 @@ const ServiceTicket = sequelize.define('PHIEUDICHVU', {
     tableName: 'PHIEUDICHVU',
     timestamps: true
 });
-
-// Add Customer association
 ServiceTicket.belongsTo(Customer, {
     foreignKey: 'MaKhachHang',
     as: 'customer'

@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require("uuid");
 const ServiceTicket = require("../models/serviceTicket.model");
 const ServiceTicketDetail = require("../models/serviceTicketDetail.model");
 const ServiceType = require("../models/serviceType.model");
+const Customer = require("../models/customer.model");  // Add this line
 const Customer = require("../models/customer.model");
 
 // Add helper function for date formatting
@@ -13,6 +14,23 @@ const formatDate = (date) => {
 class ServiceTicketService {
   static async createServiceTicket(ticketData, details) {
     try {
+      console.log('Creating service ticket:', ticketData, details);
+      // Validate ticket status
+      if (
+        ticketData.TinhTrang &&
+        !["Đã giao", "Chưa giao"].includes(ticketData.TinhTrang)
+      ) {
+        throw new Error('Tình trạng chỉ có thể là "Đã giao" hoặc "Chưa giao"');
+      }
+      // Create the service ticket with auto-generated ID if not provided
+      const ticket = await ServiceTicket.create({
+        SoPhieuDV: ticketData.SoPhieuDV,
+        NgayLap: ticketData.NgayLap,
+        MaKhachHang: ticketData.MaKhachHang,
+        TongTien: ticketData.TongTien,
+        TongTienTraTruoc: ticketData.TongTienTraTruoc,
+        TinhTrang: ticketData.TinhTrang || "Chưa giao",
+      });
         // Validate ticket status
         if (ticketData.TinhTrang && 
             !["Chưa hoàn thành", "Hoàn thành"].includes(ticketData.TinhTrang)) {
@@ -64,7 +82,21 @@ class ServiceTicketService {
                 if (traTruoc < minPrepayment) {
                     throw new Error(`Số tiền trả trước phải >= ${serviceType.PhanTramTraTruoc}% thành tiền (${minPrepayment})`);
                 }
-
+          detailsWithIds.push({
+            MaChiTietDV:
+              detail.MaChiTietDV || `CTDV${uuidv4().substring(0, 8)}`,
+            SoPhieuDV: ticket.SoPhieuDV,
+            MaLoaiDichVu: detail.MaLoaiDichVu,
+            SoLuong: detail.SoLuong || 1, // Add default value
+            DonGiaDuocTinh: finalPrice || 0, // Add default value
+            ThanhTien: thanhTien || 0, // Add default value
+            TraTruoc: traTruoc || 0, // Add default value
+            ConLai: (thanhTien - traTruoc) || 0, // Add default value
+            NgayGiao: detail.NgayGiao || null,
+            TinhTrang: detail.TinhTrang || "Chưa giao",
+            ChiPhiRieng: detail.ChiPhiRieng || 0,
+          });
+        }
                 // Create detail record
                 const detailRecord = {
                     MaChiTietDV: detailId,
@@ -291,5 +323,51 @@ class ServiceTicketService {
     }
   }
 }
+
+const createServiceTicket = async (ticketData) => {
+  try {
+    // Validate required fields
+    if (!ticketData.SoPhieuDV || !ticketData.MaKhachHang) {
+      throw new Error('SoPhieuDV and MaKhachHang are required');
+    }
+
+    // Create the ticket
+    const ticket = {
+      SoPhieuDV: ticketData.SoPhieuDV,
+      NgayLap: ticketData.NgayLap || new Date(),
+      MaKhachHang: ticketData.MaKhachHang,
+      TongTien: ticketData.TongTien || 0,
+      TongTienTraTruoc: ticketData.TongTienTraTruoc || 0,
+      TinhTrang: ticketData.TinhTrang || 'Chưa hoàn thành',
+    };
+
+    const response = await axiosInstance.post('/service-tickets', ticket);
+    
+    // If there are details, create them
+    if (ticketData.details && ticketData.details.length > 0) {
+      const detailsWithIds = ticketData.details.map(detail => ({
+        MaChiTietDV: detail.MaChiTietDV || `CTDV${uuidv4().substring(0, 8)}`,
+        SoPhieuDV: ticket.SoPhieuDV,
+        MaLoaiDichVu: detail.MaLoaiDichVu,
+        SoLuong: detail.SoLuong || 1,
+        DonGiaDuocTinh: detail.DonGiaDuocTinh || 0,
+        ThanhTien: detail.ThanhTien || 0,
+        TraTruoc: detail.TraTruoc || 0,
+        ConLai: detail.ConLai || 0,
+        NgayGiao: detail.NgayGiao || null,
+        TinhTrang: detail.TinhTrang || "Chưa giao",
+        ChiPhiRieng: detail.ChiPhiRieng || 0
+      }));
+
+      await axiosInstance.post('/service-ticket-details/bulk', detailsWithIds);
+    }
+
+    return response.data;
+
+  } catch (error) {
+    console.error('Error creating service ticket:', error);
+    throw new Error(`Lỗi tạo phiếu dịch vụ: ${error.message}`);
+  }
+};
 
 module.exports = ServiceTicketService;

@@ -155,17 +155,17 @@ class PurchaseService {
       SoLuong: detail.SoLuong,
       DonGia: detail.DonGia,
       ThanhTien: detail.ThanhTien,
-      TenLoaiSanPham: detail.product?.category?.TenLoaiSanPham // Use optional chaining to handle undefined
+      TenLoaiSanPham: detail.product?.category?.TenLoaiSanPham
     }));
 
-
     return {
-      purchaseDetails: purchaseDetails, // Use optional chaining to handle undefined
+      purchaseDetails: purchaseDetails,
       purchaseOrder: {
         SoPhieu: purchaseOrder.SoPhieu,
         NgayLap: purchaseOrder.NgayLap,
         MaNCC: purchaseOrder.MaNCC,
         TongTien: purchaseOrder.TongTien,
+        NhaCungCap: purchaseOrder.NhaCungCap
       }
     };
   }
