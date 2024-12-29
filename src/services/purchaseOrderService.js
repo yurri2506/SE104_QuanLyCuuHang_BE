@@ -4,6 +4,7 @@ const PurchaseDetail = require("../models/purchaseOrderDetails.model");
 const Provider = require("../models/provider.model");
 const Product = require("../models/product.model");
 const ProductCategory = require("../models/category.model");
+const WarehouseManageService = require('./warehouseService');
 
 class PurchaseService {
   static async createPurchase(data) {
@@ -85,6 +86,16 @@ class PurchaseService {
           ...detail.toJSON(),
           TenLoaiSanPham: productType.TenLoaiSanPham
         });
+      }
+
+      // Update warehouse report for each product
+      for (const product of chiTietSanPham) {
+        await WarehouseManageService.updateReportForProduct(
+          product.maSanPham,
+          product.soLuong,
+          true, // isIncrease = true for purchases
+          new Date(ngayLap)
+        );
       }
 
       // Commit giao dịch
@@ -236,6 +247,13 @@ class PurchaseService {
             DonGia: product.DonGia,
             ThanhTien: product.ThanhTien,
           }, { transaction });
+
+          await WarehouseManageService.updateReportForProduct(
+            product.MaSanPham,
+            product.SoLuong,
+            true,
+            new Date(purchaseOrder.NgayLap)
+          );
         }
       }
 
@@ -255,11 +273,18 @@ class PurchaseService {
 
       // Xóa chi tiết phiếu mua hàng
       if (deleteDetails && deleteDetails.length > 0) {
-        for (const detailId of deleteDetails) {
+        for (const detail of deleteDetails) {
           await PurchaseDetail.destroy({
-            where: { MaChiTietMH: detailId },
+            where: { MaChiTietMH: detail.MaChiTietMH },
             transaction,
           });
+
+          await WarehouseManageService.updateReportForProduct(
+            detail.MaSanPham,
+            detail.SoLuong,
+            false,
+            new Date(purchaseOrder.NgayLap)
+          );
         }
       }
 

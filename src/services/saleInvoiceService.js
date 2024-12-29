@@ -5,6 +5,7 @@ const SaleInvoiceDetail = require('../models/saleInvoiceDetail.model');
 const Product = require('../models/product.model');
 const Customer = require('../models/customer.model');
 const ProductCategory = require('../models/category.model');
+const WarehouseManageService = require('./warehouseService');
 
 class SaleInvoiceService {
     static async createSaleInvoice(data) {
@@ -96,6 +97,16 @@ class SaleInvoiceService {
                 { transaction }
             );
 
+            // Update warehouse report for each product
+            for (const product of chiTietSanPham) {
+                await WarehouseManageService.updateReportForProduct(
+                    product.maSanPham,
+                    product.soLuong,
+                    false, // isIncrease = false for sales
+                    new Date(ngayLap)
+                );
+            }
+
             // Commit giao dịch
             await transaction.commit();
 
@@ -174,6 +185,14 @@ class SaleInvoiceService {
                         },
                         transaction
                     });
+
+                    // Update warehouse report for deleted products
+                    await WarehouseManageService.updateReportForProduct(
+                        detail.MaSanPham,
+                        detail.SoLuong,
+                        true, // Restore quantity back to inventory
+                        new Date(invoice.NgayLap)
+                    );
                 }
             }
 
@@ -204,6 +223,14 @@ class SaleInvoiceService {
                         DonGiaBanRa: detail.DonGiaBanRa,
                         ThanhTien: detail.ThanhTien
                     }, { transaction });
+
+                    // Update warehouse report for added products
+                    await WarehouseManageService.updateReportForProduct(
+                        detail.MaSanPham,
+                        detail.SoLuong,
+                        false,
+                        new Date(invoice.NgayLap)
+                    );
                 }
             }
 
