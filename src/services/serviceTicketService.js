@@ -159,6 +159,7 @@ class ServiceTicketService {
         ConLai: detail.ConLai,
         NgayGiao: detail.NgayGiao,
         TinhTrang: detail.TinhTrang,
+        ChiPhiRieng: detail.ChiPhiRieng || null
       }));
 
       return {
