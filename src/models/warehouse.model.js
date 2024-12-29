@@ -1,6 +1,6 @@
 // models/WarehouseManage.js
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database'); // Kết nối Sequelize
+const { sequelize } = require('../config/database');
 
 const WarehouseManage = sequelize.define('WarehouseManage', {
   Thang: {
