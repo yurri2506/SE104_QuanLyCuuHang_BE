@@ -34,7 +34,8 @@ const getServiceTicketById = async (req, res) => {
 
 const updateServiceTicket = async (req, res) => {
     try {
-        const ticket = await ServiceTicketService.updateServiceTicket(req.params.id, req.body);
+        const { ticketData, details } = req.body;
+        const ticket = await ServiceTicketService.updateServiceTicket(req.params.id, ticketData, details);
         return res.status(200).json({
             message: 'Cập nhật phiếu dịch vụ thành công',
             data: ticket
